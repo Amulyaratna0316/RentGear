@@ -50,9 +50,11 @@ const startServer = async () => {
   await buildTrieFromDB();
   await initializeUsernameBloomFilter();
 
-  const PORT = process.env.PORT || 5001;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`RentGear server running on http://0.0.0.0:${PORT}`);
+// This tells the app: Use Railway's port if available, otherwise use 5001 locally
+ const PORT = process.env.PORT || 5001;
+
+ app.listen(PORT, '0.0.0.0', () => {
+    console.log(`RentGear server running on port ${PORT}`);
   });
 }; 
 
