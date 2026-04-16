@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const Equipment = require('./models/Equipment');
@@ -67,3 +68,13 @@ Equipment.watch().on('change', async () => {
   equipment.forEach((item) => freshTrie.insert(item.title));
   Object.assign(equipmentTrie, freshTrie);
 });
+
+const mongoURI = "mongodb+srv://admin:Amulya%400316@cluster0.itsirgq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
+mongoose.connect(mongoURI)
+  .then(() => {
+    console.log("🚀 SUCCESS: Connected to MongoDB Atlas");
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err.message);
+  });
