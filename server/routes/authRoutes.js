@@ -1,16 +1,12 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const {
-  rebuildUsernameBloomFilter,
-  bloomFilter,
-  getUsernameBloomSnapshot,
-  normalizeUsername,
-} = require('../utils/bloom');
 
 const router = express.Router();
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+const normalizeUsername = (username) => String(username || '').trim().toLowerCase();
 
 const createToken = (user) =>
   jwt.sign({ id: user._id, email: user.email, username: user.username, role: user.role }, process.env.JWT_SECRET, {
@@ -26,6 +22,9 @@ const registerHandler = async (req, res) => {
     if (!name || !normalizedUsername || !normalizedEmail || !password) {
       return res.status(400).json({ message: 'Name, username, email and password are required' });
     }
+    if (normalizedUsername.length < 3) {
+      return res.status(400).json({ message: 'Username must be at least 3 characters long' });
+    }
     if (!EMAIL_REGEX.test(normalizedEmail)) {
       return res.status(400).json({ message: 'Invalid email format' });
     }
@@ -34,18 +33,13 @@ const registerHandler = async (req, res) => {
         message: 'Password must be at least 8 chars, include 1 uppercase and 1 number',
       });
     }
-    if (normalizedUsername.length < 3) {
-      return res.status(400).json({ message: 'Username must be at least 3 characters long' });
-    }
 
     const existingEmail = await User.findOne({ email: normalizedEmail });
     if (existingEmail) {
       return res.status(409).json({ message: 'Email already exists' });
     }
 
-    // ── Bloom Filter bypassed — was causing false-positive blocks ──────────
-    // const bloomHit = bloomFilter.check(normalizedUsername);
-    // Direct DB check is the source of truth:
+    // Direct DB check — Bloom Filter has been removed
     const existingUsername = await User.findOne({ username: normalizedUsername });
     if (existingUsername) {
       return res.status(409).json({ message: 'Username already taken' });
@@ -58,7 +52,6 @@ const registerHandler = async (req, res) => {
       password,
       role: role || 'customer',
     });
-    bloomFilter.add(normalizedUsername); // Keep the filter warm for the availability endpoint
 
     return res.status(201).json({
       user: {
@@ -116,21 +109,20 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Direct MongoDB check — no Bloom Filter
 router.get('/username-availability', async (req, res) => {
   const username = normalizeUsername(req.query.username);
-  if (!username) return res.status(400).json({ message: 'Username is required' });
-  console.log(`[Request Received] Username check for: ${username}`);
+  if (!username || username.length < 3) {
+    return res.status(400).json({ available: false, message: 'Username must be at least 3 characters' });
+  }
 
-  const bloomHit = bloomFilter.check(username);
-  if (!bloomHit) return res.json({ username, available: true, source: 'bloom' });
-
-  const exact = await User.findOne({ username });
-  return res.json({ username, available: !exact, source: 'bloom+db' });
-});
-
-router.get('/username-bloom-sync', async (_req, res) => {
-  await rebuildUsernameBloomFilter();
-  return res.json({ status: 'synced', ...getUsernameBloomSnapshot() });
+  try {
+    const existing = await User.findOne({ username });
+    return res.json({ available: !existing, message: existing ? 'Username taken' : 'Username available' });
+  } catch (err) {
+    // Don't block signup on error
+    return res.json({ available: true, message: 'Could not verify, will check on submit' });
+  }
 });
 
 module.exports = router;

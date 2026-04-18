@@ -157,10 +157,34 @@ export function AuthProvider({ children }) {
   }, []);
 
   const checkUsernameAvailability = async (username) => {
-    const { data } = await api.get('/api/auth/username-availability', {
-      params: { username },
-    });
-    return data;
+    try {
+      const { data } = await api.get('/auth/username-availability', {
+        params: { username },
+      });
+      return data;
+    } catch (_err) {
+      // If the server is down or errors out, don't block the user — let them try to submit
+      console.warn('[AuthContext] Username availability check failed, allowing fallback');
+      return { available: true, message: 'Could not verify, will check on submit' };
+    }
+  };
+
+  const switchRole = async () => {
+    if (!user) return;
+    const newRole = user.role === 'customer' ? 'owner' : 'customer';
+    const updatedUser = { ...user, role: newRole };
+    setUser(updatedUser);
+
+    try {
+      const saved = await AsyncStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        parsed.user = updatedUser;
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+    } catch (err) {
+      console.error('[AuthContext] Failed to persist role switch', err);
+    }
   };
 
   const value = useMemo(
@@ -173,6 +197,7 @@ export function AuthProvider({ children }) {
       registerUser,
       logout,
       checkUsernameAvailability,
+      switchRole,
     }),
     [user, token, loading]
   );

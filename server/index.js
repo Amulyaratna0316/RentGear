@@ -115,6 +115,31 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// ─── USERNAME AVAILABILITY CHECK (pure MongoDB — no Bloom Filter) ─────────────
+
+app.get('/api/auth/username-availability', async (req, res) => {
+  try {
+    const username = String(req.query.username || '').trim().toLowerCase();
+    if (!username || username.length < 3) {
+      return res.status(400).json({ available: false, message: 'Username must be at least 3 characters' });
+    }
+
+    const existingUser = await mongoose.connection.db.collection('users').findOne({
+      username: username,
+    });
+
+    if (existingUser) {
+      return res.json({ available: false, message: 'Username taken' });
+    }
+
+    return res.json({ available: true, message: 'Username available' });
+  } catch (err) {
+    console.error('[username-availability] Error:', err.message);
+    // On error, don't block signup — return available:true and let the register route do the final check
+    return res.json({ available: true, message: 'Could not verify, will check on submit' });
+  }
+});
+
 // ─── TEST ROUTE ───────────────────────────────────────────────────────────────
 
 app.get('/api/test', (req, res) => {
@@ -596,6 +621,87 @@ app.get('/api/owner/equipment-earnings', async (req, res) => {
     res.json(earningsMap);
   } catch (err) {
     console.error('❌ Equipment Earnings Aggregation Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── USER PROFILE (enriched with role-specific stats) ─────────────────────────
+
+app.get('/api/user/profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`[GET /api/user/profile] Fetching profile for: ${userId}`);
+
+    // Fetch the base user document
+    let user;
+    try {
+      user = await mongoose.connection.db.collection('users').findOne({
+        _id: new mongoose.Types.ObjectId(userId),
+      });
+    } catch (_castErr) {
+      // If userId isn't a valid ObjectId, try matching as string
+      user = await mongoose.connection.db.collection('users').findOne({ _id: userId });
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const profile = {
+      id: user._id,
+      name: user.name || 'RentGear User',
+      username: user.username || '',
+      email: user.email || '',
+      role: user.role || 'customer',
+      isVerified: user.isVerified || false,
+      profileImage: user.profileImage || null,
+      createdAt: user.createdAt || null,
+    };
+
+    const uid = String(user._id);
+
+    if (user.role === 'owner') {
+      // ── Owner stats: listings count + average rating ────────────────────
+      const listings = await mongoose.connection.db
+        .collection('equipment')
+        .find({ ownerId: uid })
+        .toArray();
+
+      const listingsCount = listings.length;
+      const ratingsArr = listings
+        .map(l => l.rating)
+        .filter(r => r !== undefined && r !== null && !Number.isNaN(Number(r)));
+      const avgRating = ratingsArr.length > 0
+        ? (ratingsArr.reduce((sum, r) => sum + Number(r), 0) / ratingsArr.length).toFixed(1)
+        : '0.0';
+
+      // Total earnings from bookings
+      const earningsPipeline = [
+        { $match: { ownerId: uid } },
+        { $group: { _id: null, totalEarnings: { $sum: { $ifNull: ['$totalPrice', 0] } }, totalRentals: { $sum: 1 } } },
+      ];
+      const earningsResult = await mongoose.connection.db.collection('bookings').aggregate(earningsPipeline).toArray();
+
+      profile.listingsCount = listingsCount;
+      profile.avgRating = avgRating;
+      profile.totalEarnings = earningsResult?.[0]?.totalEarnings ?? 0;
+      profile.totalRentals = earningsResult?.[0]?.totalRentals ?? 0;
+    } else {
+      // ── Customer stats: rentals count + total spent ─────────────────────
+      const rentalsPipeline = [
+        { $match: { userId: uid } },
+        { $group: { _id: null, rentalsCount: { $sum: 1 }, totalSpent: { $sum: { $ifNull: ['$totalPrice', 0] } } } },
+      ];
+      const rentalsResult = await mongoose.connection.db.collection('bookings').aggregate(rentalsPipeline).toArray();
+
+      profile.rentalsCount = rentalsResult?.[0]?.rentalsCount ?? 0;
+      profile.totalSpent = rentalsResult?.[0]?.totalSpent ?? 0;
+    }
+
+    console.log(`[GET /api/user/profile] Profile loaded for ${profile.name} (${profile.role})`);
+    res.json(profile);
+  } catch (err) {
+    console.error('❌ Profile Error:', err);
     res.status(500).json({ error: err.message });
   }
 });

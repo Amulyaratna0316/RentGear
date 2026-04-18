@@ -38,12 +38,14 @@ export default function AuthScreen() {
         const result = await checkUsernameAvailability(username);
         setStatus((prev) => ({
           ...prev,
-          availability: result.available ? 'Username available' : 'Username already taken',
+          availability: result?.available ? 'Username available' : (result?.message || 'Username already taken'),
         }));
       } catch (_error) {
-        setStatus((prev) => ({ ...prev, availability: 'Availability check failed' }));
+        // Silently clear — don't block the user with a scary error.
+        // The register route will do the final uniqueness check anyway.
+        setStatus((prev) => ({ ...prev, availability: '' }));
       }
-    }, 250);
+    }, 400); // slightly longer debounce to reduce API calls while typing
 
     return () => clearTimeout(timeout);
   }, [mode, form.username, checkUsernameAvailability]);

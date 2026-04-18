@@ -102,7 +102,7 @@ function AppShell() {
             refreshKey={refreshKey}
           />
         )}
-        {tab === 'profile' && <ProfileScreen />}
+        {tab === 'profile' && <ProfileScreen onNavigate={setTab} />}
       </View>
 
       {/* Add Listing Modal */}
