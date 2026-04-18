@@ -82,9 +82,11 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
     return diff > 0 ? Math.ceil(diff / 86400000) : null;
   })();
 
+  const isAvailable = eq.status === 'available' || eq.available === true || eq.stock > 0;
+
   const handleBooking = async () => {
     // Guard: bail if unavailable or already in-flight (prevents double-tap)
-    if (!eq.available || submitting) return;
+    if (!isAvailable || submitting) return;
 
     // ── Step 1: Client-side validation ──────────────────────────────────────
     if (!dateFrom.trim() || !dateTo.trim()) {
@@ -113,6 +115,7 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
 
       const payload = {
         equipmentId: eq.id,
+        equipmentName: eq.name,
         startDate: dateFrom.trim(),
         endDate: dateTo.trim(),
       };
@@ -243,10 +246,10 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
                 <TouchableOpacity
                   style={[
                     styles.bookBtn,
-                    (!eq.available || submitting) && styles.bookBtnDisabled,
+                    (!isAvailable || submitting) && styles.bookBtnDisabled,
                   ]}
                   onPress={handleBooking}
-                  disabled={!eq.available || submitting}
+                  disabled={!isAvailable || submitting}
                   activeOpacity={0.8}
                 >
                   {submitting ? (
@@ -256,7 +259,7 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
                     </View>
                   ) : (
                     <Text style={styles.bookBtnText}>
-                      {eq.available ? '📋  Request Rental' : 'Currently Unavailable'}
+                      {isAvailable ? '📋  Request Rental' : 'Currently Unavailable'}
                     </Text>
                   )}
                 </TouchableOpacity>

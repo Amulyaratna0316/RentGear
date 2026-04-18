@@ -116,8 +116,8 @@ app.get('/api/force-seed', async (req, res) => {
   console.log('Seed route hit!');
   try {
     const sampleData = [
-      { name: 'Sony A7III', price: 850, unit: 'day', rating: 5, category: 'Cameras', imageEmoji: '📷', available: true },
-      { name: 'DJI Mavic 3', price: 120, unit: 'day', rating: 4.8, category: 'Drones', imageEmoji: '🚁', available: true }
+      { name: 'Sony A7III', price: 850, unit: 'day', rating: 5, category: 'Cameras', imageEmoji: '📷', status: 'available', stock: 5, available: true },
+      { name: 'DJI Mavic 3', price: 120, unit: 'day', rating: 4.8, category: 'Drones', imageEmoji: '🚁', status: 'available', stock: 5, available: true }
     ];
     await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);
@@ -153,6 +153,7 @@ app.post(['/api/booking', '/api/bookings'], async (req, res) => {
       createdAt: new Date(),
     });
 
+    console.log('✅ Booking confirmed for:', req.body.equipmentName || equipmentId);
     res.status(201).json({ success: true, message: 'Booking Successful!', bookingId: result.insertedId });
   } catch (err) {
     console.error('❌ Booking Error:', err);
