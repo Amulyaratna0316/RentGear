@@ -23,7 +23,6 @@ function AppShell() {
   const { user, loading, logout } = useAuth();
   const [role, setRole] = useState(user?.role || 'customer');
   const [showAddListing, setShowAddListing] = useState(false);
-  const [bookingsRefreshKey, setBookingsRefreshKey] = useState(0);
 
   useEffect(() => {
     if (user?.role) {
@@ -84,12 +83,11 @@ function AppShell() {
             role={role}
             onAddListing={() => setShowAddListing(true)}
             onBookingCreated={() => {
-              setBookingsRefreshKey((prev) => prev + 1);
-              setTab('bookings'); // Navigate straight to Bookings after success
+              setTab('bookings'); // Switch to Bookings tab — mounts/focuses BookingsScreen
             }}
           />
         )}
-        {tab === 'bookings' && <BookingsScreen refreshKey={bookingsRefreshKey} />}
+        {tab === 'bookings' && <BookingsScreen isActive={tab === 'bookings'} />}
         {tab === 'listings' && <ListingsScreen onAdd={() => setShowAddListing(true)} />}
         {tab === 'profile' && <ProfileScreen />}
       </View>
