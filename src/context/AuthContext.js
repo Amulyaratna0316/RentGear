@@ -5,6 +5,12 @@ import api from '../services/api';
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'rentgear_auth';
 
+const resolveSessionFromResponse = (data) => {
+  const resolvedUser = data?.user || data?.player || (data?.id ? data : null);
+  const resolvedToken = data?.token || data?.jwt || data?.accessToken || null;
+  return { resolvedUser, resolvedToken };
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -32,10 +38,18 @@ export function AuthProvider({ children }) {
 
   const login = async (identifier, password) => {
     const { data } = await api.post('/api/auth/login', { identifier, password });
-    setUser(data.user);
-    setToken(data.token);
-    await persist(data);
-    return data.user;
+    console.log('[Auth] /api/auth/login response:', data);
+
+    const { resolvedUser, resolvedToken } = resolveSessionFromResponse(data);
+    if (!resolvedUser) {
+      throw new Error('Login succeeded but user payload is missing in response.');
+    }
+
+    const session = { user: resolvedUser, token: resolvedToken };
+    setUser(resolvedUser);
+    setToken(resolvedToken);
+    await persist(session);
+    return resolvedUser;
   };
 
   const signup = async (payload) => {

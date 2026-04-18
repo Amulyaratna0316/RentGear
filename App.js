@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, SafeAreaView, StatusBar, StyleSheet,
 } from 'react-native';
@@ -23,6 +23,12 @@ function AppShell() {
   const { user, loading } = useAuth();
   const [role, setRole] = useState(user?.role || 'customer');
   const [showAddListing, setShowAddListing] = useState(false);
+
+  useEffect(() => {
+    if (user?.role) {
+      setRole(user.role);
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -63,6 +69,12 @@ function AppShell() {
 
       {/* Screens */}
       <View style={styles.content}>
+        <View style={styles.rentingPlaceholder}>
+          <Text style={styles.rentingPlaceholderTitle}>Renting (Authenticated)</Text>
+          <Text style={styles.rentingPlaceholderText}>
+            Logged in as {user?.name || user?.username || user?.email || 'User'}
+          </Text>
+        </View>
         {tab === 'browse' && (
           <BrowseScreen role={role} onAddListing={() => setShowAddListing(true)} />
         )}
@@ -139,6 +151,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: { flex: 1, backgroundColor: COLORS.background },
+  rentingPlaceholder: {
+    margin: 12,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+    backgroundColor: '#eff6ff',
+  },
+  rentingPlaceholderTitle: { color: COLORS.primary, fontWeight: '800', fontSize: 15 },
+  rentingPlaceholderText: { color: COLORS.gray700, marginTop: 4, fontWeight: '600' },
   bottomNav: {
     flexDirection: 'row',
     backgroundColor: '#fff',
