@@ -1,4 +1,4 @@
-console.log('📡 SERVER VERSION 5.0: LOGIN ROUTES ACTIVE');
+console.log('📡 SERVER VERSION 6.0: MULTI-PATH BOOKINGS ACTIVE');
 
 const express = require('express');
 const cors = require('cors');
@@ -128,8 +128,9 @@ app.get('/api/force-seed', async (req, res) => {
   }
 });
 
-app.post('/api/bookings', async (req, res) => {
-  console.log('📥 Booking attempt:', req.body);
+// This catches /api/booking AND /api/bookings
+app.post(['/api/booking', '/api/bookings'], async (req, res) => {
+  console.log('📥 Booking Route Hit! Data:', req.body);
   try {
     const { equipmentId, startDate, endDate, ...otherData } = req.body;
     
@@ -143,16 +144,17 @@ app.post('/api/bookings', async (req, res) => {
       createdAt: new Date(),
     });
 
-    res.status(201).json({ success: true, message: 'Booking confirmed!', bookingId: result.insertedId });
+    res.status(201).json({ success: true, message: 'Booking Successful!', bookingId: result.insertedId });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to confirm booking', error: err.message });
+    console.error('❌ Booking Error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
 // Placed precisely at the end of the route stack so it functions correctly as a 404 catch-all
-app.use((req, res) => { 
-  console.log('❌ 404 on path:', req.path); 
-  res.status(404).send('Path not found'); 
+app.use((req, res) => {
+  console.log('🚫 404 ALERT! The app tried to hit:', req.method, req.path);
+  res.status(404).send('Check Railway logs for the path!');
 });
 
 const PORT = process.env.PORT || 8081;
