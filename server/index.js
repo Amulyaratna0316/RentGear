@@ -1,32 +1,27 @@
+console.log('🔥🔥🔥 VERSION 2.0 LIVE 🔥🔥🔥');
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const Equipment = require('./models/Equipment');
-const authRoutes = require('./routes/authRoutes');
-const equipmentRoutes = require('./routes/equipmentRoutes');
-const bookingRoutes = require('./routes/bookingRoutes');
-const TitleTrie = require('./utils/trie');
-const { initializeUsernameBloomFilter, getUsernameBloomMeta } = require('./utils/bloom');
-
-dotenv.config({ path: `${__dirname}/.env` });
 
 const app = express();
-const equipmentTrie = new TitleTrie();
 
-const corsOptions = {
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-
-app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/bookings', bookingRoutes);
+const mongoURI = process.env.MONGO_URI || "mongodb+srv://admin:rentgear123@cluster0.itsirgq.mongodb.net/RentGear?retryWrites=true&w=majority";
+
+mongoose.connect(mongoURI)
+  .then(() => console.log('✅ Successfully connected to RentGear database inside standalone file'))
+  .catch(err => console.log('❌ MongoDB Connection Error:', err.message));
+
+app.get('/', (req, res) => {
+  res.send('✅ RentGear Express Standalone API Running');
+});
+
+app.get('/api/test', (req, res) => {
+  res.json({ status: 'ok', message: 'Backend connected to Cluster0' });
+});
 
 app.get('/api/equipment', async (req, res) => {
   try {
@@ -43,64 +38,16 @@ app.get('/api/force-seed', async (req, res) => {
       { name: 'Sony A7III', price: 50, category: 'Cameras', image: 'https://placehold.co/400' },
       { name: 'DJI Mavic 3', price: 80, category: 'Drones', image: 'https://placehold.co/400' }
     ];
+    // Wipe first to prevent duplicates stacking if visited multiple times
+    await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);
     res.send('✅ Success! Data forced into RentGear DB.');
   } catch (err) {
     res.status(500).send('❌ Error: ' + err.message);
   }
 });
-app.get('/api/test', (req, res) => res.json({ status: 'ok', message: 'Backend connected to Cluster0' }));
-app.get('/api/health', (_req, res) =>
-  res.json({
-    status: 'ok',
-    bloom: getUsernameBloomMeta(),
-  })
-);
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.get('/api/equipment-search/trie', async (req, res) => {
-  const { q = '' } = req.query;
-  if (!q) return res.json({ suggestions: [] });
-  return res.json({ suggestions: equipmentTrie.searchPrefix(String(q), 15) });
+const PORT = process.env.PORT || 8081;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening natively on ${PORT}`);
 });
-
-const buildTrieFromDB = async () => {
-  const equipment = await Equipment.find({}, 'title').lean();
-  equipment.forEach((item) => equipmentTrie.insert(item.title));
-};
-
-const startServer = async () => {
-  await connectDB();
-  await buildTrieFromDB();
-  await initializeUsernameBloomFilter();
-  
-  app.listen(process.env.PORT || 8081, '0.0.0.0', () => {
-    console.log(`Server on ${process.env.PORT || 8081}`);
-  });
-};
-
-startServer();
-
-Equipment.watch().on('change', async () => {
-  // Lightweight rebuild keeps trie and DB in sync after CRUD operations.
-  const freshTrie = new TitleTrie();
-  const equipment = await Equipment.find({}, 'title').lean();
-  equipment.forEach((item) => freshTrie.insert(item.title));
-  Object.assign(equipmentTrie, freshTrie);
-});
-
-const connectDBWithFallback = async () => {
-  try {
-    const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:Amulya%400316@cluster0.itsirgq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-    const maskedURI = mongoURI.replace(/\/([^:]+):([^@]+)@/, '/$1:****@');
-    console.log(`[MongoDB] Attempting connection to: ${maskedURI}`);
-
-    await mongoose.connect(mongoURI);
-    console.log("🚀 SUCCESS: Connected to MongoDB Atlas");
-  } catch (err) {
-    console.error("❌ MongoDB connection error:", err.message);
-  }
-};
-
-connectDBWithFallback();
