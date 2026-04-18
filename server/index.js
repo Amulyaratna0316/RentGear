@@ -55,8 +55,10 @@ const startServer = async () => {
   await buildTrieFromDB();
   await initializeUsernameBloomFilter();
 
-  app.listen(process.env.PORT || 8081, '0.0.0.0', () => {
-    console.log('🚀 Server running on 8081');
+  const PORT = process.env.PORT || 8081;
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server on ${PORT}`);
   });
 };
 
@@ -70,3 +72,18 @@ Equipment.watch().on('change', async () => {
   Object.assign(equipmentTrie, freshTrie);
 });
 
+const connectDBWithFallback = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:Amulya%400316@cluster0.itsirgq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
+    const maskedURI = mongoURI.replace(/\/([^:]+):([^@]+)@/, '/$1:****@');
+    console.log(`[MongoDB] Attempting connection to: ${maskedURI}`);
+
+    await mongoose.connect(mongoURI);
+    console.log("🚀 SUCCESS: Connected to MongoDB Atlas");
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err.message);
+  }
+};
+
+connectDBWithFallback();

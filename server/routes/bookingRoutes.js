@@ -63,12 +63,16 @@ router.post('/', authMiddleware, async (req, res) => {
       totalPrice,
     });
 
+    // Populate for immediate frontend use if they depend on local state insertion
+    await booking.populate('equipment', 'title imageEmoji pricePerDay location');
+    await booking.populate('owner', 'name');
+
     // Debug: confirm what was saved
     console.log('[POST /api/bookings] Created booking:', {
       _id: booking._id,
       renter: booking.renter,
       status: booking.status,
-      equipment: booking.equipment,
+      equipment: booking.equipment.title,
     });
 
     // Mark equipment unavailable immediately so no one else can book it
