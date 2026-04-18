@@ -26,6 +26,7 @@ function AppShell() {
   const { user, loading, logout } = useAuth();
   const [role, setRole] = useState(user?.role || 'customer');
   const [showAddListing, setShowAddListing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (user?.role) {
@@ -44,6 +45,8 @@ function AppShell() {
   if (!user) {
     return <AuthScreen />;
   }
+
+  const triggerRefresh = () => setRefreshKey(k => k + 1);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -84,14 +87,21 @@ function AppShell() {
         {tab === 'browse' && (
           <BrowseScreen
             role={role}
+            refreshKey={refreshKey}
             onAddListing={() => setShowAddListing(true)}
             onBookingCreated={() => {
               setTab('bookings'); // Switch to Bookings tab — mounts/focuses BookingsScreen
+              triggerRefresh();
             }}
           />
         )}
         {tab === 'bookings' && <BookingsScreen isActive={tab === 'bookings'} />}
-        {tab === 'listings' && <ListingsScreen onAdd={() => setShowAddListing(true)} />}
+        {tab === 'listings' && (
+          <ListingsScreen 
+            onAdd={() => setShowAddListing(true)} 
+            refreshKey={refreshKey}
+          />
+        )}
         {tab === 'profile' && <ProfileScreen />}
       </View>
 
@@ -99,6 +109,10 @@ function AppShell() {
       <AddListingScreen
         visible={showAddListing}
         onClose={() => setShowAddListing(false)}
+        onSuccess={() => {
+          setShowAddListing(false);
+          triggerRefresh();
+        }}
       />
 
       {/* Bottom Nav */}

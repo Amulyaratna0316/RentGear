@@ -6,7 +6,7 @@ import { COLORS } from '../data';
 import { Badge } from '../components/SharedComponents';
 import { useAuth } from '../context/AuthContext';
 
-export default function ListingsScreen({ onAdd }) {
+export default function ListingsScreen({ onAdd, refreshKey }) {
   const { user } = useAuth();
   const [listings, setListings] = useState([]);
   const [ownerBookings, setOwnerBookings] = useState([]);
@@ -48,7 +48,7 @@ export default function ListingsScreen({ onAdd }) {
       setLoading(false);
     }
     return () => { mounted = false; };
-  }, [user?.role]);
+  }, [user?.role, refreshKey]);
 
   if (loading) {
     return (

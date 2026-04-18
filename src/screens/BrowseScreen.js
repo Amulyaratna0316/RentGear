@@ -8,7 +8,7 @@ import { CATEGORIES, COLORS, EQUIPMENT } from '../data';
 import { Stars, Badge } from '../components/SharedComponents';
 import EquipmentModal from '../components/EquipmentModal';
 
-export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
+export default function BrowseScreen({ role, refreshKey, onAddListing, onBookingCreated }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [selectedEq, setSelectedEq] = useState(null);
@@ -42,7 +42,7 @@ export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
     };
 
     loadEquipment();
-  }, []);
+  }, [refreshKey]);
 
   const filtered = useMemo(() => equipment.filter(e =>
     (category === 'All' || e.category === category) &&

@@ -145,6 +145,43 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
+app.post('/api/equipment', async (req, res) => {
+  console.log('📥 Equipment Creation Route Hit! Data:', req.body);
+  try {
+    const { name, price, category, desc, ownerId } = req.body;
+    
+    const emojiMap = {
+      'Cameras': '📷',
+      'Drones': '🚁',
+      'Tools': '🛠️',
+      'Generators': '⚡',
+      'Excavators': '🏗️',
+      'Other': '📦'
+    };
+
+    const newEquipment = {
+      name: name || 'Unnamed Equipment',
+      price: price ? Number(price) : 0,
+      category: category || 'Other',
+      description: desc || '',
+      ownerId: String(ownerId),
+      status: 'available',
+      available: true,
+      stock: 5,
+      rating: 5,
+      imageEmoji: emojiMap[category] || '📦',
+      image: 'https://placehold.co/400',
+      createdAt: new Date()
+    };
+
+    const result = await mongoose.connection.db.collection('equipment').insertOne(newEquipment);
+    res.status(201).json({ success: true, message: 'Equipment Created!', equipmentId: result.insertedId });
+  } catch (err) {
+    console.error('❌ Equipment Creation Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // This catches /api/booking AND /api/bookings
 app.post(['/api/booking', '/api/bookings'], async (req, res) => {
   console.log('📥 Booking Route Hit! Data:', req.body);

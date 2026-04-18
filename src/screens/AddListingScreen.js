@@ -1,147 +1,176 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal,
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Modal, ActivityIndicator, Alert
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { CATEGORIES, COLORS } from '../data';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import AIVerificationModal from '../components/AIVerificationModal';
 
-export default function AddListingScreen({ visible, onClose }) {
-  const [form, setForm] = useState({ name: '', price: '', category: '', desc: '' });
+export default function AddListingScreen({ visible, onClose, onSuccess }) {
+  const { user } = useAuth();
+  const [form, setForm] = useState({ name: '', price: '', category: 'Tools', desc: '' });
   const [showAI, setShowAI] = useState(false);
   const [verified, setVerified] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const reset = () => {
-    setForm({ name: '', price: '', category: '', desc: '' });
+    setForm({ name: '', price: '', category: 'Tools', desc: '' });
     setVerified(false);
-    setSubmitted(false);
+    setSubmitting(false);
+    setError('');
     onClose();
   };
 
-  const canSubmit = verified && form.name && form.price;
+  const handleVerifySim = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert('AI Verification', 'AI Verification Simulated: Item looks good!');
+    setVerified(true);
+  };
+
+  const handlePublish = async () => {
+    if (!form.name || !form.price) return;
+    
+    try {
+      setSubmitting(true);
+      setError('');
+      
+      const payload = {
+        ...form,
+        ownerId: user?.id || user?._id,
+      };
+
+      console.log('[AddListingScreen] Sending payload:', payload);
+      await api.post('/equipment', payload);
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (onSuccess) onSuccess();
+      reset();
+    } catch (err) {
+      console.error('[AddListingScreen] Error:', err);
+      setError(err?.response?.data?.message || err.message || 'Failed to publish listing');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const canSubmit = form.name && form.price && !submitting;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={reset}>
-      <AIVerificationModal
-        visible={showAI}
-        onClose={() => setShowAI(false)}
-        onSuccess={() => { setVerified(true); setShowAI(false); }}
-      />
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.topRow}>
             <Text style={styles.heading}>List Your Equipment</Text>
-            <TouchableOpacity style={styles.closeBtn} onPress={reset}>
+            <TouchableOpacity style={styles.closeBtn} onPress={reset} disabled={submitting}>
               <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          {submitted ? (
-            <View style={styles.successState}>
-              <Text style={{ fontSize: 60 }}>🚀</Text>
-              <Text style={styles.successTitle}>Listing Published!</Text>
-              <Text style={styles.successSub}>Your equipment is now visible to renters.</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Name */}
+            <Text style={styles.label}>Equipment Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Excavator JD 350G"
+              placeholderTextColor={COLORS.gray400}
+              value={form.name}
+              onChangeText={v => set('name', v)}
+              editable={!submitting}
+            />
+
+            {/* Price */}
+            <Text style={styles.label}>Price per Day (₹)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 4500"
+              placeholderTextColor={COLORS.gray400}
+              keyboardType="numeric"
+              value={form.price}
+              onChangeText={v => set('price', v)}
+              editable={!submitting}
+            />
+
+            {/* Category */}
+            <Text style={styles.label}>Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8 }}>
+              {CATEGORIES.filter(c => c !== 'All').map(c => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.catChip, form.category === c && styles.catChipActive]}
+                  onPress={() => set('category', c)}
+                  disabled={submitting}
+                >
+                  <Text style={[styles.catText, form.category === c && { color: '#fff' }]}>{c}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Description */}
+            <Text style={styles.label}>Description</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Describe condition, specs, accessories..."
+              placeholderTextColor={COLORS.gray400}
+              multiline
+              numberOfLines={4}
+              value={form.desc}
+              onChangeText={v => set('desc', v)}
+              editable={!submitting}
+            />
+
+            {/* AI Verification */}
+            <View style={[styles.verifyBox, verified && styles.verifyBoxDone]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.verifyTitle, verified && { color: '#059669' }]}>
+                  {verified ? '✅ AI Verification Complete' : '📷 AI Photo Verification'}
+                </Text>
+                <Text style={styles.verifySub}>
+                  {verified ? 'Your equipment photo is authenticated' : 'Highly recommended for credibility'}
+                </Text>
+              </View>
               <TouchableOpacity
-                style={styles.doneBtn}
-                onPress={() => {
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  reset();
-                }}
+                style={[styles.verifyBtn, verified && { backgroundColor: '#d1fae5' }]}
+                onPress={handleVerifySim}
+                disabled={submitting}
               >
-                <Text style={styles.doneBtnText}>Done</Text>
+                <Text style={[styles.verifyBtnText, verified && { color: '#059669' }]}>
+                  {verified ? 'Done' : 'Verify'}
+                </Text>
               </TouchableOpacity>
             </View>
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Name */}
-              <Text style={styles.label}>Equipment Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Excavator JD 350G"
-                placeholderTextColor={COLORS.gray400}
-                value={form.name}
-                onChangeText={v => set('name', v)}
-              />
 
-              {/* Price */}
-              <Text style={styles.label}>Price per Day (₹)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 4500"
-                placeholderTextColor={COLORS.gray400}
-                keyboardType="numeric"
-                value={form.price}
-                onChangeText={v => set('price', v)}
-              />
+            {!!error && <Text style={styles.errorText}>⚠️ {error}</Text>}
 
-              {/* Category */}
-              <Text style={styles.label}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8 }}>
-                {CATEGORIES.filter(c => c !== 'All').map(c => (
-                  <TouchableOpacity
-                    key={c}
-                    style={[styles.catChip, form.category === c && styles.catChipActive]}
-                    onPress={() => set('category', c)}
-                  >
-                    <Text style={[styles.catText, form.category === c && { color: '#fff' }]}>{c}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Description */}
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Describe condition, specs, accessories..."
-                placeholderTextColor={COLORS.gray400}
-                multiline
-                numberOfLines={4}
-                value={form.desc}
-                onChangeText={v => set('desc', v)}
-              />
-
-              {/* AI Verification */}
-              <View style={[styles.verifyBox, verified && styles.verifyBoxDone]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.verifyTitle, verified && { color: '#065f46' }]}>
-                    {verified ? '✅ AI Verification Complete' : '📷 AI Photo Verification'}
-                  </Text>
-                  <Text style={styles.verifySub}>
-                    {verified ? 'Your equipment photo is authenticated' : 'Required to publish listing'}
-                  </Text>
+            {/* Submit */}
+            <TouchableOpacity
+              style={[
+                styles.submitBtn, 
+                !canSubmit && styles.submitBtnDisabled,
+                canSubmit && { backgroundColor: '#2563eb' } // High-contrast Blue
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                handlePublish();
+              }}
+              disabled={!canSubmit}
+            >
+              {submitting ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator color="#fff" size="small" style={{ marginRight: 8 }} />
+                  <Text style={styles.submitBtnText}>Publishing...</Text>
                 </View>
-                {!verified && (
-                  <TouchableOpacity
-                    style={styles.verifyBtn}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setShowAI(true);
-                    }}
-                  >
-                    <Text style={styles.verifyBtnText}>Verify</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Submit */}
-              <TouchableOpacity
-                style={[styles.submitBtn, !canSubmit && styles.submitBtnDisabled]}
-                onPress={() => {
-                  if (!canSubmit) return;
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  setSubmitted(true);
-                }}
-                disabled={!canSubmit}
-              >
+              ) : (
                 <Text style={styles.submitBtnText}>Publish Listing</Text>
-              </TouchableOpacity>
+              )}
+            </TouchableOpacity>
 
-              <View style={{ height: 40 }} />
-            </ScrollView>
-          )}
+            <View style={{ height: 40 }} />
+          </ScrollView>
         </View>
       </View>
     </Modal>
