@@ -1,12 +1,73 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { MY_LISTINGS, COLORS } from '../data';
+import api from '../services/api';
+import { COLORS } from '../data';
 import { Badge } from '../components/SharedComponents';
+import { useAuth } from '../context/AuthContext';
 
 export default function ListingsScreen({ onAdd }) {
-  const totalEarnings = MY_LISTINGS.reduce((a, l) => a + l.earnings, 0);
-  const totalRentals = MY_LISTINGS.reduce((a, l) => a + l.rentals, 0);
+  const { user } = useAuth();
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    if (user?.role === 'owner') {
+      const fetchListings = async () => {
+        try {
+          const { data } = await api.get('/equipment');
+          if (mounted) {
+            const mapped = (data || []).map(item => ({
+              id: item._id,
+              name: item.title || item.name || 'Unknown Item',
+              status: item.status || (item.available ? 'available' : 'unavailable'),
+              category: item.category || 'Other',
+              price: item.price !== undefined ? item.price : item.pricePerDay || 0,
+              unit: item.unit || 'day',
+              earnings: item.earnings || 0,
+              rentals: item.rentals || 0,
+              img: item.imageEmoji || '🛠️',
+            }));
+            // NOTE: In the future, filter by item.ownerId === user.id
+            setListings(mapped);
+          }
+        } catch (error) {
+          console.error('[ListingsScreen] Fetch error:', error);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      };
+      fetchListings();
+    } else {
+      setLoading(false);
+    }
+    return () => { mounted = false; };
+  }, [user?.role]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerAll]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  // Fallback UI for Customer Accounts
+  if (user?.role !== 'owner') {
+    return (
+      <View style={[styles.container, styles.centerAll]}>
+        <Text style={styles.emptyIcon}>📦</Text>
+        <Text style={styles.emptyTitle}>Switch to Owner Mode</Text>
+        <Text style={styles.emptySubText}>
+          To list equipment and start earning, please switch to Owner Mode in settings.
+        </Text>
+      </View>
+    );
+  }
+
+  const totalEarnings = listings.reduce((a, l) => a + l.earnings, 0);
+  const totalRentals = listings.reduce((a, l) => a + l.rentals, 0);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
@@ -30,56 +91,68 @@ export default function ListingsScreen({ onAdd }) {
         <Text style={styles.earningsSub}>{totalRentals} completed rentals</Text>
       </View>
 
-      {MY_LISTINGS.map(l => (
-        <View key={l.id} style={styles.card}>
-          <View style={styles.cardTop}>
-            <View style={styles.iconBox}>
-              <Text style={styles.icon}>{l.img}</Text>
-            </View>
-            <View style={styles.info}>
-              <View style={styles.titleRowInner}>
-                <Text style={styles.equipName}>{l.name}</Text>
-                <Badge color="#065f46" bg={COLORS.successLight}>{l.status}</Badge>
-              </View>
-              <Text style={styles.category}>{l.category}</Text>
-              <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statVal}>₹{l.earnings.toLocaleString('en-IN')}</Text>
-                  <Text style={styles.statLbl}>earned</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statVal}>{l.rentals}</Text>
-                  <Text style={styles.statLbl}>rentals</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statVal}>₹{l.price.toLocaleString('en-IN')}</Text>
-                  <Text style={styles.statLbl}>/{l.unit}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.editBtn}
-              onPress={() => Haptics.selectionAsync()}
-            >
-              <Text style={styles.editBtnText}>✏️  Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.deleteBtn}
-              onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
-            >
-              <Text style={styles.deleteBtnText}>🗑️  Remove</Text>
-            </TouchableOpacity>
-          </View>
+      {listings.length === 0 ? (
+        <View style={styles.emptyStateBox}>
+          <Text style={{ fontSize: 40, marginBottom: 12 }}>📤</Text>
+          <Text style={styles.emptyTitle}>No listings yet.</Text>
         </View>
-      ))}
+      ) : (
+        listings.map(l => (
+          <View key={l.id} style={styles.card}>
+            <View style={styles.cardTop}>
+              <View style={styles.iconBox}>
+                <Text style={styles.icon}>{l.img}</Text>
+              </View>
+              <View style={styles.info}>
+                <View style={styles.titleRowInner}>
+                  <Text style={styles.equipName}>{l.name}</Text>
+                  <Badge color="#065f46" bg={COLORS.successLight}>{l.status}</Badge>
+                </View>
+                <Text style={styles.category}>{l.category}</Text>
+                <View style={styles.statsRow}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statVal}>₹{l.earnings.toLocaleString('en-IN')}</Text>
+                    <Text style={styles.statLbl}>earned</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statVal}>{l.rentals}</Text>
+                    <Text style={styles.statLbl}>rentals</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statVal}>₹{l.price.toLocaleString('en-IN')}</Text>
+                    <Text style={styles.statLbl}>/{l.unit}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => Haptics.selectionAsync()}
+              >
+                <Text style={styles.editBtnText}>✏️  Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)}
+              >
+                <Text style={styles.deleteBtnText}>🗑️  Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  centerAll: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  emptyIcon: { fontSize: 60, marginBottom: 16 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#111', marginBottom: 8, textAlign: 'center' },
+  emptySubText: { fontSize: 14, color: COLORS.gray500, textAlign: 'center', lineHeight: 22 },
+  emptyStateBox: { alignItems: 'center', marginVertical: 32 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   heading: { fontSize: 22, fontWeight: '800', color: '#111' },
   addBtn: { backgroundColor: COLORS.primary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
