@@ -1,13 +1,10 @@
 const mongoose = require('mongoose');
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('MongoDB connected');
-  } catch (error) {
-    console.error('MongoDB connection error:', error.message);
-    process.exit(1);
-  }
+const connectDB = () => {
+  const uri = process.env.MONGO_URI || "mongodb+srv://admin:rentgear123@cluster0.itsirgq.mongodb.net/rentgear?retryWrites=true&w=majority";
+  return mongoose.connect(uri)
+    .then(() => console.log('✅ Successfully connected to rentgear database'))
+    .catch(err => console.log('❌ MongoDB Connection Error:', err.message));
 };
 
 module.exports = connectDB;

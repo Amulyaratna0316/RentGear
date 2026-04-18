@@ -27,8 +27,8 @@ const api = axios.create({
   // ── Verify backend connection directly on startup ─────────────────────────
   try {
     const testRes = await api.get('/api/test');
-    if (testRes.data && testRes.data.status === 'Backend is running from /server folder') {
-      console.log('✅✅✅ BACKEND VERIFIED: Bypassed Expo Manifest successfully! ' + testRes.data.status);
+    if (testRes.data && testRes.data.status === 'ok') {
+      console.log('✅✅✅ BACKEND VERIFIED: Bypassed Expo Manifest successfully! ' + testRes.data.message);
     }
   } catch (e) {
     console.error('❌❌❌ BACKEND VERIFIED FAILED:', e.message);
