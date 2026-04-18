@@ -128,6 +128,33 @@ app.get('/api/force-seed', async (req, res) => {
   }
 });
 
+app.post('/api/bookings', async (req, res) => {
+  console.log('📥 Booking attempt:', req.body);
+  try {
+    const { equipmentId, startDate, endDate, ...otherData } = req.body;
+    
+    // Natively inserting into the RentGear 'bookings' collection
+    const result = await mongoose.connection.db.collection('bookings').insertOne({
+      equipmentId,
+      startDate: new Date(startDate || Date.now()),
+      endDate: new Date(endDate || Date.now()),
+      ...otherData,
+      status: 'confirmed',
+      createdAt: new Date(),
+    });
+
+    res.status(201).json({ success: true, message: 'Booking confirmed!', bookingId: result.insertedId });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to confirm booking', error: err.message });
+  }
+});
+
+// Placed precisely at the end of the route stack so it functions correctly as a 404 catch-all
+app.use((req, res) => { 
+  console.log('❌ 404 on path:', req.path); 
+  res.status(404).send('Path not found'); 
+});
+
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening natively on ${PORT}`);
