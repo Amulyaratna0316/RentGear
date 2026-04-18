@@ -51,6 +51,18 @@ export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
       (e.tags || []).some(t => t.includes(search.toLowerCase())))
   ), [equipment, category, search]);
 
+  if (role === 'owner') {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 32 }]}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>🚫</Text>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#111', marginBottom: 8, textAlign: 'center' }}>Owner Mode</Text>
+        <Text style={{ fontSize: 14, color: COLORS.gray500, textAlign: 'center', lineHeight: 22 }}>
+          Please login as a Customer to browse gear or view your rentals.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <EquipmentModal

@@ -115,9 +115,12 @@ app.get('/api/equipment', async (req, res) => {
 app.get('/api/force-seed', async (req, res) => {
   console.log('Seed route hit!');
   try {
+    const owner = await mongoose.connection.db.collection('users').findOne({ role: 'owner' });
+    const ownerId = owner ? String(owner._id) : 'mock-owner-id';
+
     const sampleData = [
-      { name: 'Sony A7III', price: 850, unit: 'day', rating: 5, category: 'Cameras', imageEmoji: '📷', status: 'available', stock: 5, available: true },
-      { name: 'DJI Mavic 3', price: 120, unit: 'day', rating: 4.8, category: 'Drones', imageEmoji: '🚁', status: 'available', stock: 5, available: true }
+      { name: 'Sony A7III', price: 850, unit: 'day', rating: 5, category: 'Cameras', imageEmoji: '📷', status: 'available', stock: 5, available: true, ownerId },
+      { name: 'DJI Mavic 3', price: 120, unit: 'day', rating: 4.8, category: 'Drones', imageEmoji: '🚁', status: 'available', stock: 5, available: true, ownerId }
     ];
     await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);
@@ -130,7 +133,12 @@ app.get('/api/force-seed', async (req, res) => {
 
 app.get('/api/bookings', async (req, res) => {
   try {
-    const items = await mongoose.connection.db.collection('bookings').find({}).toArray();
+    const { userId, ownerId } = req.query;
+    const query = {};
+    if (userId) query.userId = String(userId);
+    if (ownerId) query.ownerId = String(ownerId);
+
+    const items = await mongoose.connection.db.collection('bookings').find(query).toArray();
     res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -143,9 +151,27 @@ app.post(['/api/booking', '/api/bookings'], async (req, res) => {
   try {
     const { equipmentId, startDate, endDate, ...otherData } = req.body;
     
+    const equipment = await mongoose.connection.db.collection('equipment').findOne({ _id: new mongoose.Types.ObjectId(equipmentId) });
+    if (!equipment) return res.status(404).json({ error: 'Equipment not found' });
+
+    // Inventory depreciation
+    const updatedEq = await mongoose.connection.db.collection('equipment').findOneAndUpdate(
+      { _id: new mongoose.Types.ObjectId(equipmentId) },
+      { $inc: { stock: -1 } },
+      { returnDocument: 'after' }
+    );
+    
+    if (updatedEq && updatedEq.value && updatedEq.value.stock <= 0) {
+      await mongoose.connection.db.collection('equipment').updateOne(
+        { _id: new mongoose.Types.ObjectId(equipmentId) },
+        { $set: { status: 'unavailable', available: false } }
+      );
+    }
+    
     // Natively inserting into the RentGear 'bookings' collection
     const result = await mongoose.connection.db.collection('bookings').insertOne({
       equipmentId,
+      ownerId: equipment.ownerId,
       startDate: new Date(startDate || Date.now()),
       endDate: new Date(endDate || Date.now()),
       ...otherData,

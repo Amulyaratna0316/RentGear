@@ -9,16 +9,21 @@ import { useAuth } from '../context/AuthContext';
 export default function ListingsScreen({ onAdd }) {
   const { user } = useAuth();
   const [listings, setListings] = useState([]);
+  const [ownerBookings, setOwnerBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     if (user?.role === 'owner') {
-      const fetchListings = async () => {
+      const fetchListingsAndBookings = async () => {
         try {
-          const { data } = await api.get('/equipment');
+          const [eqRes, bookRes] = await Promise.all([
+            api.get('/equipment'),
+            api.get(`/bookings?ownerId=${user?.id}`)
+          ]);
+
           if (mounted) {
-            const mapped = (data || []).map(item => ({
+            const mapped = (eqRes.data || []).map(item => ({
               id: item._id,
               name: item.title || item.name || 'Unknown Item',
               status: item.status || (item.available ? 'available' : 'unavailable'),
@@ -29,8 +34,8 @@ export default function ListingsScreen({ onAdd }) {
               rentals: item.rentals || 0,
               img: item.imageEmoji || '🛠️',
             }));
-            // NOTE: In the future, filter by item.ownerId === user.id
             setListings(mapped);
+            setOwnerBookings(Array.isArray(bookRes.data) ? bookRes.data : []);
           }
         } catch (error) {
           console.error('[ListingsScreen] Fetch error:', error);
@@ -38,7 +43,7 @@ export default function ListingsScreen({ onAdd }) {
           if (mounted) setLoading(false);
         }
       };
-      fetchListings();
+      fetchListingsAndBookings();
     } else {
       setLoading(false);
     }
@@ -90,6 +95,21 @@ export default function ListingsScreen({ onAdd }) {
         <Text style={styles.earningsAmount}>₹{totalEarnings.toLocaleString('en-IN')}</Text>
         <Text style={styles.earningsSub}>{totalRentals} completed rentals</Text>
       </View>
+
+      {/* Owner Dashboard Rentals Tracker */}
+      {ownerBookings.length > 0 && (
+        <View style={styles.bookingAlertsTrack}>
+          <Text style={styles.bookingAlertsHeader}>Recent Rentals</Text>
+          {ownerBookings.map(b => (
+            <View key={b._id} style={styles.bookingAlertNode}>
+              <Text style={styles.bookingAlertIcon}>🔔</Text>
+              <Text style={styles.bookingAlertMessage}>
+                Your <Text style={{ fontWeight: '800' }}>{b.equipmentName || 'Equipment'}</Text> has been rented by <Text style={{ fontWeight: '800' }}>Customer {b.userId ? String(b.userId).substring(0,4) : 'User'}</Text>.
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {listings.length === 0 ? (
         <View style={styles.emptyStateBox}>
@@ -178,4 +198,9 @@ const styles = StyleSheet.create({
   editBtnText: { fontWeight: '600', fontSize: 13, color: COLORS.gray700 },
   deleteBtn: { flex: 1, backgroundColor: COLORS.dangerLight, borderRadius: 10, padding: 10, alignItems: 'center' },
   deleteBtnText: { fontWeight: '600', fontSize: 13, color: COLORS.danger },
+  bookingAlertsTrack: { marginBottom: 20 },
+  bookingAlertsHeader: { fontWeight: '800', fontSize: 16, marginBottom: 8, color: '#1e293b' },
+  bookingAlertNode: { backgroundColor: '#f0fdf4', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#bbf7d0' },
+  bookingAlertIcon: { fontSize: 18, marginRight: 8 },
+  bookingAlertMessage: { fontSize: 13, color: '#166534', flex: 1, lineHeight: 18 },
 });

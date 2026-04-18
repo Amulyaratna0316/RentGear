@@ -5,6 +5,7 @@ import {
 import { COLORS } from '../data';
 import { Badge } from '../components/SharedComponents';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const toDisplayDate = (value) => {
   if (!value) return '-';
@@ -26,6 +27,7 @@ const toDisplayDate = (value) => {
  *   automatically from the JWT, so no extra query param is needed.
  */
 export default function BookingsScreen({ isActive = true }) {
+  const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,8 +44,8 @@ export default function BookingsScreen({ isActive = true }) {
     try {
       if (!silent) setLoading(true);
       setError('');
-      console.log('[BookingsScreen] Fetching GET /bookings...');
-      const { data } = await api.get('/bookings');
+      console.log(`[BookingsScreen] Fetching GET /bookings?userId=${user?.id}...`);
+      const { data } = await api.get(`/bookings?userId=${user?.id}`);
       console.log('[BookingsScreen] Response:', JSON.stringify(data));
       if (isMounted.current) {
         setBookings(Array.isArray(data) ? data : []);
@@ -72,16 +74,32 @@ export default function BookingsScreen({ isActive = true }) {
   // The effect below fires on mount (isActive = true) AND if the parent
   // ever keeps it mounted and just toggles isActive.
   useEffect(() => {
-    if (isActive) {
+    if (isActive && user?.role !== 'owner') {
       loadBookings();
     }
-  }, [isActive, loadBookings]);
+  }, [isActive, loadBookings, user?.role]);
 
   // ── Pull-to-refresh handler ───────────────────────────────────────────────
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadBookings({ silent: true });
-  }, [loadBookings]);
+    if (user?.role !== 'owner') {
+      loadBookings({ silent: true });
+    } else {
+      setRefreshing(false);
+    }
+  }, [loadBookings, user?.role]);
+
+  if (user?.role === 'owner') {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 32 }]}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>🚫</Text>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#111', marginBottom: 8, textAlign: 'center' }}>Owner Mode</Text>
+        <Text style={{ fontSize: 14, color: COLORS.gray500, textAlign: 'center', lineHeight: 22 }}>
+          Please login as a Customer to browse gear or view your rentals.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView

@@ -6,9 +6,11 @@ import * as Haptics from 'expo-haptics';
 import api from '../services/api';
 import { Stars, Badge } from './SharedComponents';
 import { COLORS } from '../data';
+import { useAuth } from '../context/AuthContext';
 
 export default function EquipmentModal({ eq, onClose, onBooked }) {
   // ── All hooks MUST come first, unconditionally ──────────────────────────
+  const { user } = useAuth();
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [booked, setBooked] = useState(false);
@@ -116,6 +118,7 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
       const payload = {
         equipmentId: eq.id,
         equipmentName: eq.name,
+        userId: user?.id,
         startDate: dateFrom.trim(),
         endDate: dateTo.trim(),
       };
