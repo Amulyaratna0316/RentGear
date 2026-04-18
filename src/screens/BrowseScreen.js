@@ -20,14 +20,14 @@ export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
         const { data } = await api.get('/equipment');
         const mapped = data.map((item) => ({
           id: item._id,
-          name: item.title,
-          category: item.category,
-          price: item.pricePerDay,
-          unit: 'day',
+          name: item.title || item.name || 'Unknown Item',
+          category: item.category || 'Other',
+          price: item.pricePerDay !== undefined ? item.pricePerDay : item.price,
+          unit: item.unit || 'day',
           owner: item.owner?.name || 'Owner',
           location: item.location || 'Unknown',
-          rating: 4.7,
-          reviews: 10,
+          rating: item.rating || 4.7,
+          reviews: item.reviews || 10,
           available: item.available,
           img: item.imageEmoji || '🛠️',
           tags: [item.category?.toLowerCase()],
@@ -137,9 +137,9 @@ export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
                   {!eq.available && <Badge color="#991b1b" bg="#fee2e2">Rented</Badge>}
                 </View>
                 <Text style={styles.cardLocation}>{eq.location}</Text>
-                <Stars rating={eq.rating} />
+                <Stars rating={eq.rating || 0} />
                 <View style={styles.cardPriceRow}>
-                  <Text style={styles.cardPrice}>₹{eq.price.toLocaleString('en-IN')}</Text>
+                  <Text style={styles.cardPrice}>₹{eq.price?.toLocaleString('en-IN') || '0'}</Text>
                   <Text style={styles.cardUnit}>/{eq.unit}</Text>
                 </View>
               </View>

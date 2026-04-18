@@ -116,8 +116,8 @@ app.get('/api/force-seed', async (req, res) => {
   console.log('Seed route hit!');
   try {
     const sampleData = [
-      { title: 'Sony A7III', pricePerDay: 50, category: 'Cameras', imageEmoji: '📷', available: true },
-      { title: 'DJI Mavic 3', pricePerDay: 80, category: 'Drones', imageEmoji: '🚁', available: true }
+      { name: 'Sony A7III', price: 850, unit: 'day', rating: 5, category: 'Cameras', imageEmoji: '📷', available: true },
+      { name: 'DJI Mavic 3', price: 120, unit: 'day', rating: 4.8, category: 'Drones', imageEmoji: '🚁', available: true }
     ];
     await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);

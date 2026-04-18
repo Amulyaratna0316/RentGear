@@ -173,8 +173,8 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
                 <Text style={styles.eqName}>{eq.name}</Text>
                 <Text style={styles.eqSub}>{eq.category} · {eq.location}</Text>
                 <View style={styles.ratingRow}>
-                  <Stars rating={eq.rating} />
-                  <Text style={styles.reviewCount}>({eq.reviews} reviews)</Text>
+                  <Stars rating={eq.rating || 0} />
+                  <Text style={styles.reviewCount}>({eq.reviews || 0} reviews)</Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -196,8 +196,8 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
             {/* Price card */}
             <View style={styles.priceCard}>
               <View>
-                <Text style={styles.priceAmount}>₹{eq.price.toLocaleString('en-IN')}</Text>
-                <Text style={styles.priceUnit}>per {eq.unit}</Text>
+                <Text style={styles.priceAmount}>₹{eq.price?.toLocaleString('en-IN') || '0'}</Text>
+                <Text style={styles.priceUnit}>per {eq.unit || 'day'}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={styles.listedByLabel}>Listed by</Text>
@@ -234,7 +234,7 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
                 {days && (
                   <View style={styles.totalBox}>
                     <Text style={styles.totalDays}>{days} day{days > 1 ? 's' : ''} total</Text>
-                    <Text style={styles.totalPrice}>₹{(eq.price * days).toLocaleString('en-IN')}</Text>
+                    <Text style={styles.totalPrice}>₹{((eq.price || 0) * days).toLocaleString('en-IN')}</Text>
                   </View>
                 )}
 
