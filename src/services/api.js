@@ -23,6 +23,16 @@ const api = axios.create({
   } catch (e) {
     console.warn('[api.js] Could not restore token from storage:', e.message);
   }
+
+  // ── Verify backend connection directly on startup ─────────────────────────
+  try {
+    const testRes = await api.get('/api/test');
+    if (testRes.data && testRes.data.message === 'Backend is alive!') {
+      console.log('✅✅✅ BACKEND VERIFIED: Bypassed Expo Manifest successfully! ' + testRes.data.message);
+    }
+  } catch (e) {
+    console.error('❌❌❌ BACKEND VERIFIED FAILED:', e.message);
+  }
 })();
 
 export default api;

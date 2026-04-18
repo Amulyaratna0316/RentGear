@@ -29,6 +29,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
+app.get('/api/test', (req, res) => res.json({ message: 'Backend is alive!' }));
+
 app.get('/api/health', (_req, res) =>
   res.json({
     status: 'ok',
