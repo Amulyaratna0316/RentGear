@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Buffer } from 'buffer';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -12,14 +11,42 @@ const resolveSessionFromResponse = (data) => {
   return { resolvedUser, resolvedToken };
 };
 
+const decodeBase64 = (input) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = input.replace(/=+$/, '');
+  let output = '';
+  for (
+    let bc = 0, bs = 0, buffer, i = 0;
+    (buffer = str.charAt(i++));
+    ~buffer && ((bs = bc % 4 ? bs * 64 + buffer : buffer), bc++ % 4)
+      ? (output += String.fromCharCode(255 & (bs >> (-2 * bc & 6))))
+      : 0
+  ) {
+    buffer = chars.indexOf(buffer);
+  }
+  return output;
+};
+
 const getTokenPayload = (token) => {
   if (!token || typeof token !== 'string') return null;
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '=');
-    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+    let decoded;
+    if (typeof atob !== 'undefined') {
+      decoded = atob(payload);
+    } else {
+      const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '=');
+      decoded = decodeBase64(padded);
+    }
+    // Handle potential UTF-8 characters
+    try {
+      decoded = decodeURIComponent(escape(decoded));
+    } catch (e) {
+      // fallback if escape fails
+    }
+    return JSON.parse(decoded);
   } catch (_error) {
     return null;
   }
