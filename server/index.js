@@ -122,9 +122,9 @@ app.get('/api/force-seed', async (req, res) => {
     await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);
     
-    res.status(200).send('<h1 style="color:red">SEED ROUTE ACTIVE V5</h1>');
+    res.status(200).json({ message: 'SEED ROUTE ACTIVE V5' });
   } catch (err) {
-    res.status(500).send(err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -163,7 +163,7 @@ app.post(['/api/booking', '/api/bookings'], async (req, res) => {
 // Placed precisely at the end of the route stack so it functions correctly as a 404 catch-all
 app.use((req, res) => {
   console.log('🚫 404 ALERT! The app tried to hit:', req.method, req.path);
-  res.status(404).send('Check Railway logs for the path!');
+  res.status(404).json({ error: 'Check Railway logs for the path!' });
 });
 
 const PORT = process.env.PORT || 8081;

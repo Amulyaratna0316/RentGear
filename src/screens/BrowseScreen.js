@@ -44,9 +44,9 @@ export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
 
   const filtered = useMemo(() => equipment.filter(e =>
     (category === 'All' || e.category === category) &&
-    (e.name.toLowerCase().includes(search.toLowerCase()) ||
-      e.category.toLowerCase().includes(search.toLowerCase()) ||
-      e.tags.some(t => t.includes(search.toLowerCase())))
+    ((e.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (e.category || '').toLowerCase().includes(search.toLowerCase()) ||
+      (e.tags || []).some(t => t.includes(search.toLowerCase())))
   ), [equipment, category, search]);
 
   return (
