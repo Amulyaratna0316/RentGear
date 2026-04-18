@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, TextInput, ActivityIndicator,
+  Alert, View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, TextInput, ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import api from '../services/api';
@@ -83,13 +83,14 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
   })();
 
   const handleBooking = async () => {
+    // Guard: bail if unavailable or already in-flight (prevents double-tap)
     if (!eq.available || submitting) return;
 
+    // ── Step 1: Client-side validation ──────────────────────────────────────
     if (!dateFrom.trim() || !dateTo.trim()) {
       setError('Please enter both start and end dates.');
       return;
     }
-
     const fromResult = validateDate(dateFrom, 'From date');
     if (!fromResult.valid) {
       setError(fromResult.error);
@@ -105,25 +106,57 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
       return;
     }
 
+    // ── Step 2: Call the backend API ─────────────────────────────────────────
     try {
-      setSubmitting(true);
+      setSubmitting(true); // Disables the button immediately
       setError('');
+
       await api.post('/api/bookings', {
         equipmentId: eq.id,
         startDate: dateFrom.trim(),
         endDate: dateTo.trim(),
       });
+      // API returned 2xx — booking was created in the database
+
+      // ── Step 3: Haptic + Success alert BEFORE any navigation ──────────────
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      Alert.alert(
+        '🎉 Booking Confirmed!',
+        `Your rental request for "${eq.name}" has been sent. The owner will confirm within 2 hours.`,
+        [
+          {
+            text: 'View My Bookings',
+            onPress: () => {
+              // Only navigate AFTER the user acknowledges the alert
+              onClose?.();      // Close the modal
+              onBooked?.();     // Switches tab to Bookings and triggers re-fetch
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+
+      // Mark locally as booked so the in-modal success view also shows
+      // (visible briefly before the alert dismisses the modal)
       setBooked(true);
-      if (onBooked) onBooked();
+
     } catch (apiError) {
+      // ── Step 4: Error alert with backend message ───────────────────────────
       const message =
         apiError?.response?.data?.message ||
         apiError?.message ||
-        'Failed to create booking. Please try again.';
-      setError(message);
+        'Could not complete the booking. Please try again.';
+
+      setError(message); // Inline error stays visible
+
+      Alert.alert(
+        'Booking Failed',
+        `Server Error: ${message}`,
+        [{ text: 'OK' }]
+      );
     } finally {
-      setSubmitting(false);
+      setSubmitting(false); // Re-enables the button after success or failure
     }
   };
 
@@ -207,12 +240,19 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
                 {!!error && <Text style={styles.errorText}>{error}</Text>}
 
                 <TouchableOpacity
-                  style={[styles.bookBtn, !eq.available && styles.bookBtnDisabled]}
+                  style={[
+                    styles.bookBtn,
+                    (!eq.available || submitting) && styles.bookBtnDisabled,
+                  ]}
                   onPress={handleBooking}
                   disabled={!eq.available || submitting}
+                  activeOpacity={0.8}
                 >
                   {submitting ? (
-                    <ActivityIndicator color="#fff" />
+                    <View style={styles.bookBtnInner}>
+                      <ActivityIndicator color="#fff" size="small" />
+                      <Text style={[styles.bookBtnText, { marginLeft: 8 }]}>Confirming...</Text>
+                    </View>
                   ) : (
                     <Text style={styles.bookBtnText}>
                       {eq.available ? '📋  Request Rental' : 'Currently Unavailable'}
@@ -263,7 +303,8 @@ const styles = StyleSheet.create({
   totalDays: { color: '#92400e', fontSize: 14 },
   totalPrice: { color: '#92400e', fontWeight: '700', fontSize: 14 },
   errorText: { color: COLORS.danger, fontWeight: '600', marginBottom: 10 },
-  bookBtn: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center' },
+  bookBtn: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 8 },
+  bookBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   bookBtnDisabled: { backgroundColor: COLORS.gray400 },
   bookBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   bookedBox: { backgroundColor: COLORS.successLight, borderRadius: 12, padding: 24, alignItems: 'center' },
