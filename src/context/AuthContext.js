@@ -90,8 +90,8 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (identifier, password) => {
-    const { data } = await api.post('/api/auth/login', { identifier, password });
-    console.log('[Auth] /api/auth/login response:', data);
+    const { data } = await api.post('/auth/login', { identifier, password });
+    console.log('[Auth] /auth/login response:', data);
 
     const { resolvedUser, resolvedToken } = resolveSessionFromResponse(data);
     if (!resolvedUser) {
@@ -106,7 +106,7 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (payload) => {
-    const { data } = await api.post('/api/auth/register', payload);
+    const { data } = await api.post('/auth/register', payload);
     setUser(data.user);
     setToken(data.token);
     await persist(data);
@@ -115,7 +115,7 @@ export function AuthProvider({ children }) {
 
   const registerUser = async (payload) => {
     try {
-      const { data } = await api.post('/api/auth/register', payload);
+      const { data } = await api.post('/auth/register', payload);
       return data.user;
     } catch (error) {
       const backendReason = error?.response?.data?.message;

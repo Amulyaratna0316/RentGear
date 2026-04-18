@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
-  baseURL: 'https://rentgear-production-1055.up.railway.app',
+  baseURL: 'https://rentgear-production-1055.up.railway.app/api',
   timeout: 10000,
 });
 
@@ -26,7 +26,7 @@ const api = axios.create({
 
   // ── Verify backend connection directly on startup ─────────────────────────
   try {
-    const testRes = await api.get('/api/test');
+    const testRes = await api.get('/test');
     if (testRes.data && testRes.data.status === 'ok') {
       console.log('✅✅✅ BACKEND VERIFIED: Bypassed Expo Manifest successfully! ' + testRes.data.message);
     }

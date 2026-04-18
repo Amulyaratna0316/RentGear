@@ -11,14 +11,16 @@ const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
+app.use((req, res, next) => { console.log('Incoming Request:', req.method, req.path); next(); });
+
 const mongoURI = process.env.MONGO_URI || "mongodb+srv://admin:rentgear123@cluster0.itsirgq.mongodb.net/RentGear?retryWrites=true&w=majority";
 
 mongoose.connect(mongoURI)
   .then(() => console.log('✅ Successfully connected to RentGear database inside standalone file'))
   .catch(err => console.log('❌ MongoDB Connection Error:', err.message));
 
-// 2. Route Prefixing - explicitly declaring /api/login and /api/signup here to bypass deleted routers
-app.post('/api/login', async (req, res) => {
+// 2. Route Prefixing - explicitly declaring /api/auth/login and /api/auth/register here to bypass deleted routers
+app.post('/api/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
     const normalizedIdentifier = String(identifier || '').trim().toLowerCase();
@@ -54,7 +56,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.post('/api/signup', async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, username, email, password, role } = req.body;
     const normalizedUsername = String(username || '').trim().toLowerCase();
