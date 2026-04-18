@@ -62,12 +62,28 @@ app.post('/api/auth/register', async (req, res) => {
     const { name, username, email, password, role } = req.body;
     const normalizedUsername = String(username || '').trim().toLowerCase();
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    
-    const existingUser = await mongoose.connection.db.collection('users').findOne({ email: normalizedEmail });
-    if (existingUser) {
+
+    // ── Validation ──────────────────────────────────────────────────────────
+    if (!name || !normalizedUsername || !normalizedEmail || !password) {
+      return res.status(400).json({ message: 'Name, username, email and password are required' });
+    }
+    if (normalizedUsername.length < 3) {
+      return res.status(400).json({ message: 'Username must be at least 3 characters long' });
+    }
+
+    // ── Direct MongoDB duplicate checks (Bloom Filter bypassed) ─────────
+    // const isAvailable = bloomFilter.check(normalizedUsername); // <--- BYPASSED — was causing false positives
+    const existingEmail = await mongoose.connection.db.collection('users').findOne({ email: normalizedEmail });
+    if (existingEmail) {
       return res.status(409).json({ message: 'Email already exists' });
     }
 
+    const existingUsername = await mongoose.connection.db.collection('users').findOne({ username: normalizedUsername });
+    if (existingUsername) {
+      return res.status(409).json({ message: 'Username already taken' });
+    }
+
+    // ── Create user ─────────────────────────────────────────────────────────
     const result = await mongoose.connection.db.collection('users').insertOne({
         name,
         username: normalizedUsername,

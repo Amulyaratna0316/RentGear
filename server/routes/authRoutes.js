@@ -34,18 +34,21 @@ const registerHandler = async (req, res) => {
         message: 'Password must be at least 8 chars, include 1 uppercase and 1 number',
       });
     }
+    if (normalizedUsername.length < 3) {
+      return res.status(400).json({ message: 'Username must be at least 3 characters long' });
+    }
 
     const existingEmail = await User.findOne({ email: normalizedEmail });
     if (existingEmail) {
       return res.status(409).json({ message: 'Email already exists' });
     }
 
-    const bloomHit = bloomFilter.check(normalizedUsername);
-    if (bloomHit) {
-      const exactUsername = await User.findOne({ username: normalizedUsername });
-      if (exactUsername) {
-        return res.status(409).json({ message: 'Bloom Filter Positive: username already exists' });
-      }
+    // ── Bloom Filter bypassed — was causing false-positive blocks ──────────
+    // const bloomHit = bloomFilter.check(normalizedUsername);
+    // Direct DB check is the source of truth:
+    const existingUsername = await User.findOne({ username: normalizedUsername });
+    if (existingUsername) {
+      return res.status(409).json({ message: 'Username already taken' });
     }
 
     const user = await User.create({
@@ -55,7 +58,7 @@ const registerHandler = async (req, res) => {
       password,
       role: role || 'customer',
     });
-    bloomFilter.add(normalizedUsername);
+    bloomFilter.add(normalizedUsername); // Keep the filter warm for the availability endpoint
 
     return res.status(201).json({
       user: {
