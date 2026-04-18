@@ -11,7 +11,7 @@ const bookingSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ['pending', 'confirmed', 'completed', 'cancelled'],
-      default: 'pending',
+      default: 'confirmed', // Instant booking — no owner approval required
     },
   },
   { timestamps: true }

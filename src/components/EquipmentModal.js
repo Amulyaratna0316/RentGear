@@ -122,23 +122,20 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       Alert.alert(
-        '🎉 Booking Confirmed!',
-        `Your rental request for "${eq.name}" has been sent. The owner will confirm within 2 hours.`,
+        'Booking Successful! 🎉',
+        `Your gear "${eq.name}" is reserved. Head to My Bookings to view the details.`,
         [
           {
             text: 'View My Bookings',
             onPress: () => {
-              // Only navigate AFTER the user acknowledges the alert
-              onClose?.();      // Close the modal
-              onBooked?.();     // Switches tab to Bookings and triggers re-fetch
+              onClose?.();   // Close the modal
+              onBooked?.();  // Switch to Bookings tab + trigger re-fetch
             },
           },
         ],
         { cancelable: false }
       );
 
-      // Mark locally as booked so the in-modal success view also shows
-      // (visible briefly before the alert dismisses the modal)
       setBooked(true);
 
     } catch (apiError) {
@@ -262,9 +259,9 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
               </>
             ) : (
               <View style={styles.bookedBox}>
-                <Text style={styles.bookedIcon}>🎉</Text>
-                <Text style={styles.bookedTitle}>Rental Request Sent!</Text>
-                <Text style={styles.bookedSub}>The owner will confirm within 2 hours.</Text>
+                <Text style={styles.bookedIcon}>✅</Text>
+                <Text style={styles.bookedTitle}>Booking Successful!</Text>
+                <Text style={styles.bookedSub}>Your gear is reserved. Check My Bookings.</Text>
               </View>
             )}
 

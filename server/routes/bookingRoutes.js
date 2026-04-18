@@ -45,6 +45,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const durationDays = Math.max(1, Math.ceil((end - start) / msPerDay));
     const totalPrice = durationDays * equipment.pricePerDay;
 
+    // status is intentionally omitted — model default is 'confirmed' (instant booking)
     const booking = await Booking.create({
       equipment: equipment._id,
       renter: req.user.id,
@@ -52,8 +53,10 @@ router.post('/', authMiddleware, async (req, res) => {
       startDate: start,
       endDate: end,
       totalPrice,
-      status: 'pending',
     });
+
+    // Mark equipment unavailable immediately so no one else can book it
+    await Equipment.findByIdAndUpdate(equipment._id, { available: false });
 
     return res.status(201).json(booking);
   } catch (error) {
