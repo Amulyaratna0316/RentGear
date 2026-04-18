@@ -29,7 +29,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-app.get('/api/test', (req, res) => res.json({ message: 'Backend is alive!' }));
+app.get('/api/test', (req, res) => res.json({ status: 'Backend is running from /server folder' }));
 
 app.get('/api/health', (_req, res) =>
   res.json({
@@ -55,13 +55,12 @@ const startServer = async () => {
   await buildTrieFromDB();
   await initializeUsernameBloomFilter();
 
-// This tells the app: Use Railway's port if available, otherwise use 5001 locally
- const PORT = process.env.PORT || 5001;
+  const PORT = process.env.PORT || 8081;
 
- app.listen(PORT, '0.0.0.0', () => {
-    console.log(`RentGear server running on port ${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server on ${PORT}`);
   });
-}; 
+};
 
 startServer();
 
@@ -73,12 +72,18 @@ Equipment.watch().on('change', async () => {
   Object.assign(equipmentTrie, freshTrie);
 });
 
-const mongoURI = "mongodb+srv://admin:Amulya%400316@cluster0.itsirgq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const connectDBWithFallback = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || "mongodb+srv://admin:Amulya%400316@cluster0.itsirgq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    
+    const maskedURI = mongoURI.replace(/\/([^:]+):([^@]+)@/, '/$1:****@');
+    console.log(`[MongoDB] Attempting connection to: ${maskedURI}`);
 
-mongoose.connect(mongoURI)
-  .then(() => {
+    await mongoose.connect(mongoURI);
     console.log("🚀 SUCCESS: Connected to MongoDB Atlas");
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error("❌ MongoDB connection error:", err.message);
-  });
+  }
+};
+
+connectDBWithFallback();
