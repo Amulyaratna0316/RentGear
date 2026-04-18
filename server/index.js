@@ -1,4 +1,4 @@
-console.log('🚀 DEPLOYMENT VERSION 3.0 - FORCE SEED ACTIVE');
+console.log('🛑 STOP! IF YOU SEE THIS, VERSION 4.0 IS LIVE! 🛑');
 
 const express = require('express');
 const cors = require('cors');
@@ -43,7 +43,7 @@ app.get('/api/force-seed', async (req, res) => {
     await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);
     
-    res.status(200).send('<h1>Seed Successful!</h1><p>Check the app now.</p>');
+    res.status(200).send('<h1 style="color:red">SEED ROUTE ACTIVE V4</h1>');
   } catch (err) {
     res.status(500).send(err.message);
   }
