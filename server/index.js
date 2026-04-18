@@ -329,11 +329,106 @@ app.get('/api/bookings', async (req, res) => {
       return res.json(bookings);
     }
 
-    // ── Customer path: simple filter ──
-    const query = {};
-    if (userId) query.userId = String(userId);
+    // ── Customer path: 3-collection aggregation pipeline ──
+    // Step 1 → $match by userId
+    // Step 2 → $lookup equipment details (name, emoji)
+    // Step 3 → $unwind equipment (left-outer safe with preserveNullAndEmptyArrays)
+    // Step 4 → $lookup owner name from users collection via equipment.ownerId
+    // Step 5 → $project clean output
+    console.log(`[GET /api/bookings] Customer aggregation for userId: ${userId}`);
 
-    const items = await mongoose.connection.db.collection('bookings').find(query).sort({ createdAt: -1 }).toArray();
+    const customerPipeline = [
+      { $match: { userId: String(userId) } },
+
+      // ── Join equipment collection ──────────────────────────────────────────
+      {
+        $addFields: {
+          equipmentObjId: {
+            $cond: {
+              if: { $regexMatch: { input: { $ifNull: ['$equipmentId', ''] }, regex: /^[0-9a-fA-F]{24}$/ } },
+              then: { $toObjectId: '$equipmentId' },
+              else: null,
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'equipment',
+          localField: 'equipmentObjId',
+          foreignField: '_id',
+          as: 'equipmentDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$equipmentDetails',
+          preserveNullAndEmptyArrays: true, // keep booking even if equipment was deleted
+        },
+      },
+
+      // ── Join owner from users collection ──────────────────────────────────
+      // ownerId can be stored as a string, so we convert it safely first
+      {
+        $addFields: {
+          ownerObjId: {
+            $cond: {
+              if: {
+                $regexMatch: {
+                  input: { $ifNull: ['$equipmentDetails.ownerId', ''] },
+                  regex: /^[0-9a-fA-F]{24}$/,
+                },
+              },
+              then: { $toObjectId: '$equipmentDetails.ownerId' },
+              else: null,
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'ownerObjId',
+          foreignField: '_id',
+          as: 'ownerDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$ownerDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // ── Project clean output ───────────────────────────────────────────────
+      {
+        $project: {
+          _id: 1,
+          status: 1,
+          startDate: 1,
+          endDate: 1,
+          totalPrice: 1,
+          createdAt: 1,
+          // Enriched fields
+          equipmentName: { $ifNull: ['$equipmentDetails.name', { $ifNull: ['$equipmentName', 'Unknown Equipment'] }] },
+          imageEmoji: { $ifNull: ['$equipmentDetails.imageEmoji', '🛠️'] },
+          ownerName: { $ifNull: ['$ownerDetails.name', 'Verified Owner'] },
+          // Keep raw ids for debugging
+          equipmentId: 1,
+          ownerId: 1,
+          userId: 1,
+        },
+      },
+
+      { $sort: { createdAt: -1 } },
+    ];
+
+    const items = await mongoose.connection.db
+      .collection('bookings')
+      .aggregate(customerPipeline)
+      .toArray();
+
+    console.log(`[GET /api/bookings] Found ${items.length} booking(s) for customer ${userId}`);
     res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
