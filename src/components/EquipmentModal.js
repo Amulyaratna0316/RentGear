@@ -8,21 +8,26 @@ import { Stars, Badge } from './SharedComponents';
 import { COLORS } from '../data';
 
 export default function EquipmentModal({ eq, onClose, onBooked }) {
+  // ── All hooks MUST come first, unconditionally ──────────────────────────
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [booked, setBooked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  if (!eq) return null;
-
+  // Reset form whenever the selected equipment changes
   useEffect(() => {
+    if (!eq) return;
     setDateFrom('');
     setDateTo('');
     setBooked(false);
     setSubmitting(false);
     setError('');
   }, [eq?.id]);
+  // ── End of hooks ─────────────────────────────────────────────────────────
+
+  // Conditional logic AFTER all hooks
+  if (!eq) return null;
 
   const parseDate = (str) => {
     const [y, m, d] = str.split('-').map(Number);
