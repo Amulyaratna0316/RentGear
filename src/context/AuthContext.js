@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Buffer } from 'buffer';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -9,6 +10,25 @@ const resolveSessionFromResponse = (data) => {
   const resolvedUser = data?.user || data?.player || (data?.id ? data : null);
   const resolvedToken = data?.token || data?.jwt || data?.accessToken || null;
   return { resolvedUser, resolvedToken };
+};
+
+const getTokenPayload = (token) => {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '=');
+    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+  } catch (_error) {
+    return null;
+  }
+};
+
+const isTokenExpired = (token) => {
+  const payload = getTokenPayload(token);
+  if (!payload?.exp) return false;
+  return Date.now() >= payload.exp * 1000;
 };
 
 export function AuthProvider({ children }) {
@@ -22,8 +42,14 @@ export function AuthProvider({ children }) {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          setUser(parsed.user);
-          setToken(parsed.token);
+          if (isTokenExpired(parsed?.token)) {
+            await AsyncStorage.removeItem(STORAGE_KEY);
+            setUser(null);
+            setToken(null);
+          } else {
+            setUser(parsed.user || null);
+            setToken(parsed.token || null);
+          }
         }
       } finally {
         setLoading(false);
@@ -78,6 +104,30 @@ export function AuthProvider({ children }) {
     setToken(null);
     await AsyncStorage.removeItem(STORAGE_KEY);
   };
+
+  useEffect(() => {
+    if (token) {
+      api.defaults.headers.common.Authorization = `Bearer ${token}`;
+    } else {
+      delete api.defaults.headers.common.Authorization;
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error?.response?.status === 401) {
+          await AsyncStorage.removeItem(STORAGE_KEY);
+          setUser(null);
+          setToken(null);
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => api.interceptors.response.eject(interceptor);
+  }, []);
 
   const checkUsernameAvailability = async (username) => {
     const { data } = await api.get('/api/auth/username-availability', {

@@ -6,6 +6,7 @@ const connectDB = require('./config/db');
 const Equipment = require('./models/Equipment');
 const authRoutes = require('./routes/authRoutes');
 const equipmentRoutes = require('./routes/equipmentRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
 const TitleTrie = require('./utils/trie');
 const { initializeUsernameBloomFilter, getUsernameBloomMeta } = require('./utils/bloom');
 
@@ -26,6 +27,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 app.get('/api/health', (_req, res) =>
   res.json({

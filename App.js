@@ -20,9 +20,10 @@ const NAV = [
 
 function AppShell() {
   const [tab, setTab] = useState('browse');
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [role, setRole] = useState(user?.role || 'customer');
   const [showAddListing, setShowAddListing] = useState(false);
+  const [bookingsRefreshKey, setBookingsRefreshKey] = useState(0);
 
   useEffect(() => {
     if (user?.role) {
@@ -53,6 +54,9 @@ function AppShell() {
           <Text style={styles.appTagline}>Equipment Rental Platform</Text>
         </View>
         <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+            <Text style={styles.logoutBtnText}>Logout</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.roleToggle}
             onPress={() => setRole(r => r === 'customer' ? 'owner' : 'customer')}
@@ -76,9 +80,13 @@ function AppShell() {
           </Text>
         </View>
         {tab === 'browse' && (
-          <BrowseScreen role={role} onAddListing={() => setShowAddListing(true)} />
+          <BrowseScreen
+            role={role}
+            onAddListing={() => setShowAddListing(true)}
+            onBookingCreated={() => setBookingsRefreshKey((prev) => prev + 1)}
+          />
         )}
-        {tab === 'bookings' && <BookingsScreen />}
+        {tab === 'bookings' && <BookingsScreen refreshKey={bookingsRefreshKey} />}
         {tab === 'listings' && <ListingsScreen onAdd={() => setShowAddListing(true)} />}
         {tab === 'profile' && <ProfileScreen />}
       </View>
@@ -133,6 +141,15 @@ const styles = StyleSheet.create({
   appName: { color: '#fff', fontSize: 26, fontWeight: '900', letterSpacing: 0.5 },
   appTagline: { color: '#93c5fd', fontSize: 13, marginTop: 2 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logoutBtn: {
+    backgroundColor: 'rgba(239,68,68,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.6)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  logoutBtnText: { color: '#fee2e2', fontSize: 12, fontWeight: '700' },
   roleToggle: {
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,

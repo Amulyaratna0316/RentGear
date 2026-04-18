@@ -1,17 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, TextInput,
+  View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, TextInput, ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import api from '../services/api';
 import { Stars, Badge } from './SharedComponents';
 import { COLORS } from '../data';
 
-export default function EquipmentModal({ eq, onClose }) {
+export default function EquipmentModal({ eq, onClose, onBooked }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [booked, setBooked] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   if (!eq) return null;
+
+  useEffect(() => {
+    setDateFrom('');
+    setDateTo('');
+    setBooked(false);
+    setSubmitting(false);
+    setError('');
+  }, [eq?.id]);
 
   const parseDate = (str) => {
     const [y, m, d] = str.split('-').map(Number);
@@ -22,6 +33,47 @@ export default function EquipmentModal({ eq, onClose }) {
     dateFrom && dateTo && dateFrom < dateTo
       ? Math.max(1, Math.ceil((parseDate(dateTo) - parseDate(dateFrom)) / 86400000))
       : null;
+
+  const handleBooking = async () => {
+    if (!eq.available || submitting) return;
+
+    if (!dateFrom.trim() || !dateTo.trim()) {
+      setError('Please enter both start and end dates.');
+      return;
+    }
+
+    const start = parseDate(dateFrom);
+    const end = parseDate(dateTo);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setError('Invalid date format. Use YYYY-MM-DD.');
+      return;
+    }
+    if (end < start) {
+      setError('End date cannot be before start date.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError('');
+      await api.post('/api/bookings', {
+        equipmentId: eq.id,
+        startDate: dateFrom.trim(),
+        endDate: dateTo.trim(),
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setBooked(true);
+      if (onBooked) onBooked();
+    } catch (apiError) {
+      const message =
+        apiError?.response?.data?.message ||
+        apiError?.message ||
+        'Failed to create booking. Please try again.';
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Modal visible={!!eq} transparent animationType="slide" onRequestClose={onClose}>
@@ -100,18 +152,20 @@ export default function EquipmentModal({ eq, onClose }) {
                   </View>
                 )}
 
+                {!!error && <Text style={styles.errorText}>{error}</Text>}
+
                 <TouchableOpacity
                   style={[styles.bookBtn, !eq.available && styles.bookBtnDisabled]}
-                  onPress={() => {
-                    if (!eq.available) return;
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setBooked(true);
-                  }}
-                  disabled={!eq.available}
+                  onPress={handleBooking}
+                  disabled={!eq.available || submitting}
                 >
-                  <Text style={styles.bookBtnText}>
-                    {eq.available ? '📋  Request Rental' : 'Currently Unavailable'}
-                  </Text>
+                  {submitting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.bookBtnText}>
+                      {eq.available ? '📋  Request Rental' : 'Currently Unavailable'}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </>
             ) : (
@@ -156,6 +210,7 @@ const styles = StyleSheet.create({
   totalBox: { backgroundColor: '#fef9c3', borderRadius: 10, padding: 12, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   totalDays: { color: '#92400e', fontSize: 14 },
   totalPrice: { color: '#92400e', fontWeight: '700', fontSize: 14 },
+  errorText: { color: COLORS.danger, fontWeight: '600', marginBottom: 10 },
   bookBtn: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center' },
   bookBtnDisabled: { backgroundColor: COLORS.gray400 },
   bookBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },

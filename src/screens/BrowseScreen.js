@@ -8,7 +8,7 @@ import { CATEGORIES, COLORS, EQUIPMENT } from '../data';
 import { Stars, Badge } from '../components/SharedComponents';
 import EquipmentModal from '../components/EquipmentModal';
 
-export default function BrowseScreen({ role, onAddListing }) {
+export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [selectedEq, setSelectedEq] = useState(null);
@@ -51,7 +51,11 @@ export default function BrowseScreen({ role, onAddListing }) {
 
   return (
     <View style={styles.container}>
-      <EquipmentModal eq={selectedEq} onClose={() => setSelectedEq(null)} />
+      <EquipmentModal
+        eq={selectedEq}
+        onClose={() => setSelectedEq(null)}
+        onBooked={onBookingCreated}
+      />
 
       {/* Search */}
       <View style={styles.searchBox}>
