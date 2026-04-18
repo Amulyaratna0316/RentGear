@@ -26,36 +26,30 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
-app.use('/api/equipment', equipmentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-app.get('/api/test', (req, res) => res.json({ status: 'ok', message: 'Backend connected to Cluster0' }));
-
-app.get('/api/force-seed', async (req, res) => {
+app.get('/api/equipment', async (req, res) => {
   try {
-    await Equipment.deleteMany({});
-    let owner = await User.findOne({ username: 'systemowner' });
-    if (!owner) {
-      owner = await User.create({
-        name: 'System Owner',
-        username: 'systemowner',
-        email: 'system@rentgear.com',
-        password: 'Password123!',
-        role: 'owner'
-      });
-    }
-
-    await Equipment.insertMany([
-      { title: 'Sony A7III Camera', pricePerDay: 50, category: 'Cameras', imageEmoji: '📷', owner: owner._id },
-      { title: 'DJI Mavic 3 Drone', pricePerDay: 80, category: 'Drones', imageEmoji: '🚁', owner: owner._id },
-      { title: 'Canon 24-70mm Lens', pricePerDay: 30, category: 'Lenses', imageEmoji: '🔍', owner: owner._id }
-    ]);
-    res.json({ message: 'Force seeded successfully with 3 equipments' });
-  } catch (error) {
-    res.status(500).json({ message: 'Force Seed Error', error: error.message });
+    const items = await mongoose.connection.db.collection('equipment').find({}).toArray();
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+app.get('/api/force-seed', async (req, res) => {
+  try {
+    const sampleData = [
+      { name: 'Sony A7III', price: 50, category: 'Cameras', image: 'https://placehold.co/400' },
+      { name: 'DJI Mavic 3', price: 80, category: 'Drones', image: 'https://placehold.co/400' }
+    ];
+    await mongoose.connection.db.collection('equipment').insertMany(sampleData);
+    res.send('✅ Success! Data forced into RentGear DB.');
+  } catch (err) {
+    res.status(500).send('❌ Error: ' + err.message);
+  }
+});
+app.get('/api/test', (req, res) => res.json({ status: 'ok', message: 'Backend connected to Cluster0' }));
 app.get('/api/health', (_req, res) =>
   res.json({
     status: 'ok',
@@ -79,11 +73,9 @@ const startServer = async () => {
   await connectDB();
   await buildTrieFromDB();
   await initializeUsernameBloomFilter();
-
-  const PORT = process.env.PORT || 8081;
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server on ${PORT}`);
+  
+  app.listen(process.env.PORT || 8081, '0.0.0.0', () => {
+    console.log(`Server on ${process.env.PORT || 8081}`);
   });
 };
 
