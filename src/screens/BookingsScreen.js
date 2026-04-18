@@ -1,5 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl,
+} from 'react-native';
 import { COLORS } from '../data';
 import { Badge } from '../components/SharedComponents';
 import api from '../services/api';
@@ -11,44 +13,111 @@ const toDisplayDate = (value) => {
   return date.toISOString().slice(0, 10);
 };
 
-export default function BookingsScreen({ refreshKey = 0 }) {
+/**
+ * BookingsScreen
+ *
+ * isActive  — passed by the custom tab switcher in App.js.
+ *             Becomes `true` every time the Bookings tab is focused.
+ *             The useEffect below re-fetches whenever this flips to true,
+ *             acting as the equivalent of useFocusEffect from React Navigation.
+ *
+ * API endpoint: GET /api/bookings
+ *   The server (bookingRoutes.js) filters by `renter: req.user.id`
+ *   automatically from the JWT, so no extra query param is needed.
+ */
+export default function BookingsScreen({ isActive = true }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const isMounted = useRef(true);
 
-  const loadBookings = useCallback(async () => {
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
+  // ── Core fetch ────────────────────────────────────────────────────────────
+  const loadBookings = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError('');
+      // Correct endpoint: GET /api/bookings
+      // Server filters by authenticated user's ID via JWT middleware.
       const { data } = await api.get('/api/bookings');
-      setBookings(Array.isArray(data) ? data : []);
+      if (isMounted.current) {
+        setBookings(Array.isArray(data) ? data : []);
+      }
     } catch (apiError) {
-      const message =
-        apiError?.response?.data?.message ||
-        apiError?.message ||
-        'Failed to load bookings';
-      setError(message);
+      if (isMounted.current) {
+        const message =
+          apiError?.response?.data?.message ||
+          apiError?.message ||
+          'Failed to load bookings. Check your connection.';
+        setError(message);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
+  // ── Focus effect (replaces useFocusEffect from @react-navigation) ─────────
+  // Because the custom tab switcher uses conditional rendering
+  //   {tab === 'bookings' && <BookingsScreen isActive={true} />}
+  // this component unmounts when hidden and remounts when shown.
+  // The effect below fires on mount (isActive = true) AND if the parent
+  // ever keeps it mounted and just toggles isActive.
   useEffect(() => {
-    loadBookings();
-  }, [loadBookings, refreshKey]);
+    if (isActive) {
+      loadBookings();
+    }
+  }, [isActive, loadBookings]);
+
+  // ── Pull-to-refresh handler ───────────────────────────────────────────────
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadBookings({ silent: true });
+  }, [loadBookings]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ padding: 16 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
+        />
+      }
+    >
       <Text style={styles.heading}>My Bookings</Text>
+
       {loading && (
         <View style={styles.centerWrap}>
-          <ActivityIndicator color={COLORS.primary} />
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading bookings...</Text>
         </View>
       )}
-      {!!error && <Text style={styles.errorText}>{error}</Text>}
-      {!loading && !error && bookings.length === 0 && (
-        <Text style={styles.emptyText}>No bookings yet. Create one from Browse.</Text>
+
+      {!!error && !loading && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>⚠️ {error}</Text>
+        </View>
       )}
+
+      {!loading && !error && bookings.length === 0 && (
+        <View style={styles.emptyWrap}>
+          <Text style={{ fontSize: 48 }}>📋</Text>
+          <Text style={styles.emptyText}>No bookings yet.</Text>
+          <Text style={styles.emptySubText}>Go to Browse and rent some equipment!</Text>
+        </View>
+      )}
+
       {bookings.map((b) => (
         <View key={b._id} style={styles.card}>
           <View style={styles.cardTop}>
@@ -83,6 +152,8 @@ export default function BookingsScreen({ refreshKey = 0 }) {
           <Text style={styles.bookingId}>Booking ID: {b._id}</Text>
         </View>
       ))}
+
+      <View style={{ height: 20 }} />
     </ScrollView>
   );
 }
@@ -103,7 +174,11 @@ const styles = StyleSheet.create({
   metaLabel: { fontSize: 10, color: COLORS.gray500 },
   metaVal: { fontSize: 11, fontWeight: '700', marginTop: 2 },
   bookingId: { fontSize: 11, color: COLORS.gray400, marginTop: 10 },
-  centerWrap: { paddingVertical: 20, alignItems: 'center' },
-  errorText: { color: COLORS.danger, marginBottom: 12, fontWeight: '600' },
-  emptyText: { color: COLORS.gray500, fontWeight: '600' },
+  centerWrap: { paddingVertical: 40, alignItems: 'center' },
+  loadingText: { color: COLORS.gray500, marginTop: 8, fontSize: 13 },
+  errorBox: { backgroundColor: '#fef2f2', borderRadius: 12, padding: 14, marginBottom: 12 },
+  errorText: { color: COLORS.danger, fontWeight: '600', fontSize: 13 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 60 },
+  emptyText: { color: '#111', fontWeight: '700', fontSize: 16, marginTop: 12 },
+  emptySubText: { color: COLORS.gray500, fontSize: 13, marginTop: 4 },
 });
