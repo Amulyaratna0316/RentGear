@@ -111,11 +111,15 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
       setSubmitting(true); // Disables the button immediately
       setError('');
 
-      await api.post('/api/bookings', {
+      const payload = {
         equipmentId: eq.id,
         startDate: dateFrom.trim(),
         endDate: dateTo.trim(),
-      });
+      };
+      console.log('[EquipmentModal] POST /api/bookings payload:', payload);
+
+      const response = await api.post('/api/bookings', payload);
+      console.log('[EquipmentModal] POST /api/bookings response:', response.status, JSON.stringify(response.data));
       // API returned 2xx — booking was created in the database
 
       // ── Step 3: Haptic + Success alert BEFORE any navigation ──────────────

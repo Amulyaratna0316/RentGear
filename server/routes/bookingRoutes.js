@@ -7,12 +7,20 @@ const router = express.Router();
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    // Debug: confirm which user ID the middleware decoded from the JWT
+    console.log('[GET /api/bookings] req.user =', req.user);
+
     const bookings = await Booking.find({ renter: req.user.id })
       .populate('equipment', 'title imageEmoji pricePerDay location')
       .populate('owner', 'name')
       .sort({ createdAt: -1 });
+
+    // Debug: confirm how many records were found
+    console.log(`[GET /api/bookings] Found ${bookings.length} booking(s) for renter ${req.user.id}`);
+
     return res.json(bookings);
   } catch (error) {
+    console.error('[GET /api/bookings] Error:', error.message);
     return res.status(500).json({ message: 'Failed to fetch bookings', error: error.message });
   }
 });
@@ -55,11 +63,20 @@ router.post('/', authMiddleware, async (req, res) => {
       totalPrice,
     });
 
+    // Debug: confirm what was saved
+    console.log('[POST /api/bookings] Created booking:', {
+      _id: booking._id,
+      renter: booking.renter,
+      status: booking.status,
+      equipment: booking.equipment,
+    });
+
     // Mark equipment unavailable immediately so no one else can book it
     await Equipment.findByIdAndUpdate(equipment._id, { available: false });
 
     return res.status(201).json(booking);
   } catch (error) {
+    console.error('[POST /api/bookings] Error:', error.message);
     return res.status(500).json({ message: 'Failed to create booking', error: error.message });
   }
 });

@@ -42,13 +42,14 @@ export default function BookingsScreen({ isActive = true }) {
     try {
       if (!silent) setLoading(true);
       setError('');
-      // Correct endpoint: GET /api/bookings
-      // Server filters by authenticated user's ID via JWT middleware.
+      console.log('[BookingsScreen] Fetching GET /api/bookings...');
       const { data } = await api.get('/api/bookings');
+      console.log('[BookingsScreen] Response:', JSON.stringify(data));
       if (isMounted.current) {
         setBookings(Array.isArray(data) ? data : []);
       }
     } catch (apiError) {
+      console.error('[BookingsScreen] Fetch error:', apiError?.response?.status, apiError?.response?.data || apiError?.message);
       if (isMounted.current) {
         const message =
           apiError?.response?.data?.message ||
