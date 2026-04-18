@@ -128,6 +128,15 @@ app.get('/api/force-seed', async (req, res) => {
   }
 });
 
+app.get('/api/bookings', async (req, res) => {
+  try {
+    const items = await mongoose.connection.db.collection('bookings').find({}).toArray();
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // This catches /api/booking AND /api/bookings
 app.post(['/api/booking', '/api/bookings'], async (req, res) => {
   console.log('📥 Booking Route Hit! Data:', req.body);

@@ -116,10 +116,10 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
         startDate: dateFrom.trim(),
         endDate: dateTo.trim(),
       };
-      console.log('[EquipmentModal] POST /api/bookings payload:', payload);
+      console.log('[EquipmentModal] POST /bookings payload:', payload);
 
-      const response = await api.post('/api/bookings', payload);
-      console.log('[EquipmentModal] POST /api/bookings response:', response.status, JSON.stringify(response.data));
+      const response = await api.post('/bookings', payload);
+      console.log('[EquipmentModal] POST /bookings response:', response.status, JSON.stringify(response.data));
       // API returned 2xx — booking was created in the database
 
       // ── Step 3: Haptic + Success alert BEFORE any navigation ──────────────

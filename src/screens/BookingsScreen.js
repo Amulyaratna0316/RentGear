@@ -42,8 +42,8 @@ export default function BookingsScreen({ isActive = true }) {
     try {
       if (!silent) setLoading(true);
       setError('');
-      console.log('[BookingsScreen] Fetching GET /api/bookings...');
-      const { data } = await api.get('/api/bookings');
+      console.log('[BookingsScreen] Fetching GET /bookings...');
+      const { data } = await api.get('/bookings');
       console.log('[BookingsScreen] Response:', JSON.stringify(data));
       if (isMounted.current) {
         setBookings(Array.isArray(data) ? data : []);

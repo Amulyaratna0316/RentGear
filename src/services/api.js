@@ -1,8 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export const BASE_URL = 'https://rentgear-production-1055.up.railway.app/api';
+
 const api = axios.create({
-  baseURL: 'https://rentgear-production-1055.up.railway.app/api',
+  baseURL: BASE_URL,
   timeout: 10000,
 });
 

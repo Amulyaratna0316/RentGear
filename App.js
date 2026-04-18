@@ -10,6 +10,9 @@ import AddListingScreen from './src/screens/AddListingScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import { COLORS } from './src/data';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { BASE_URL } from './src/services/api';
+
+console.log('📡 App connecting to:', BASE_URL);
 
 const NAV = [
   { id: 'browse', icon: '🔍', label: 'Browse' },

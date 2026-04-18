@@ -17,7 +17,7 @@ export default function BrowseScreen({ role, onAddListing, onBookingCreated }) {
   useEffect(() => {
     const loadEquipment = async () => {
       try {
-        const { data } = await api.get('/api/equipment');
+        const { data } = await api.get('/equipment');
         const mapped = data.map((item) => ({
           id: item._id,
           name: item.title,
