@@ -90,7 +90,11 @@ router.post('/login', async (req, res) => {
       $or: [{ email: normalizedIdentifier }, { username: normalizedIdentifier }],
     });
 
-    if (!user || user.password !== password) {
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    if (user.password !== password) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
