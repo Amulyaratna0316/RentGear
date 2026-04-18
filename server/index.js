@@ -1,4 +1,4 @@
-console.log('🔥🔥🔥 VERSION 2.0 LIVE 🔥🔥🔥');
+console.log('🚀 DEPLOYMENT VERSION 3.0 - FORCE SEED ACTIVE');
 
 const express = require('express');
 const cors = require('cors');
@@ -33,17 +33,19 @@ app.get('/api/equipment', async (req, res) => {
 });
 
 app.get('/api/force-seed', async (req, res) => {
+  console.log('Seed route hit!');
   try {
+    // Your seeding logic here
     const sampleData = [
       { name: 'Sony A7III', price: 50, category: 'Cameras', image: 'https://placehold.co/400' },
       { name: 'DJI Mavic 3', price: 80, category: 'Drones', image: 'https://placehold.co/400' }
     ];
-    // Wipe first to prevent duplicates stacking if visited multiple times
     await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);
-    res.send('✅ Success! Data forced into RentGear DB.');
+    
+    res.status(200).send('<h1>Seed Successful!</h1><p>Check the app now.</p>');
   } catch (err) {
-    res.status(500).send('❌ Error: ' + err.message);
+    res.status(500).send(err.message);
   }
 });
 
