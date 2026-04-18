@@ -83,7 +83,10 @@ function AppShell() {
           <BrowseScreen
             role={role}
             onAddListing={() => setShowAddListing(true)}
-            onBookingCreated={() => setBookingsRefreshKey((prev) => prev + 1)}
+            onBookingCreated={() => {
+              setBookingsRefreshKey((prev) => prev + 1);
+              setTab('bookings'); // Navigate straight to Bookings after success
+            }}
           />
         )}
         {tab === 'bookings' && <BookingsScreen refreshKey={bookingsRefreshKey} />}

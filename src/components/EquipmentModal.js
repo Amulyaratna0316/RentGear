@@ -29,15 +29,58 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
   // Conditional logic AFTER all hooks
   if (!eq) return null;
 
+  /**
+   * Strictly validates a date string:
+   *  1. Must match YYYY-MM-DD regex
+   *  2. Month must be 01-12, day must be 01-31
+   *  3. Reconstructed Date must not overflow (e.g. Feb 30 → Mar 1)
+   *  4. Date must be today or in the future
+   * Returns { valid: boolean, date: Date|null, error: string }
+   */
+  const validateDate = (str, label) => {
+    // Step 1: format check
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(str.trim())) {
+      return { valid: false, date: null, error: `${label}: use YYYY-MM-DD format.` };
+    }
+    const [y, m, d] = str.trim().split('-').map(Number);
+    // Step 2: range check
+    if (m < 1 || m > 12) {
+      return { valid: false, date: null, error: `${label}: month must be between 01 and 12.` };
+    }
+    if (d < 1 || d > 31) {
+      return { valid: false, date: null, error: `${label}: day must be between 01 and 31.` };
+    }
+    // Step 3: overflow check (e.g. Feb 30 silently becomes Mar 1)
+    const constructed = new Date(y, m - 1, d);
+    if (
+      constructed.getFullYear() !== y ||
+      constructed.getMonth() !== m - 1 ||
+      constructed.getDate() !== d
+    ) {
+      return { valid: false, date: null, error: `${label}: '${str}' is not a real calendar date.` };
+    }
+    // Step 4: must not be in the past (compare date-only, ignoring time)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (constructed < todayStart) {
+      return { valid: false, date: null, error: `${label}: date cannot be in the past.` };
+    }
+    return { valid: true, date: constructed, error: null };
+  };
+
   const parseDate = (str) => {
     const [y, m, d] = str.split('-').map(Number);
     return new Date(y, m - 1, d);
   };
 
-  const days =
-    dateFrom && dateTo && dateFrom < dateTo
-      ? Math.max(1, Math.ceil((parseDate(dateTo) - parseDate(dateFrom)) / 86400000))
-      : null;
+  const days = (() => {
+    if (!dateFrom || !dateTo) return null;
+    const fromResult = validateDate(dateFrom, 'From date');
+    const toResult = validateDate(dateTo, 'To date');
+    if (!fromResult.valid || !toResult.valid) return null;
+    const diff = toResult.date - fromResult.date;
+    return diff > 0 ? Math.ceil(diff / 86400000) : null;
+  })();
 
   const handleBooking = async () => {
     if (!eq.available || submitting) return;
@@ -47,14 +90,18 @@ export default function EquipmentModal({ eq, onClose, onBooked }) {
       return;
     }
 
-    const start = parseDate(dateFrom);
-    const end = parseDate(dateTo);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      setError('Invalid date format. Use YYYY-MM-DD.');
+    const fromResult = validateDate(dateFrom, 'From date');
+    if (!fromResult.valid) {
+      setError(fromResult.error);
       return;
     }
-    if (end < start) {
-      setError('End date cannot be before start date.');
+    const toResult = validateDate(dateTo, 'To date');
+    if (!toResult.valid) {
+      setError(toResult.error);
+      return;
+    }
+    if (toResult.date <= fromResult.date) {
+      setError('End date must be after the start date.');
       return;
     }
 
