@@ -42,9 +42,12 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', authMiddleware, async (req, res) => {
   try {
+    const qty = Math.max(1, Number(req.body.totalQuantity) || 1);
     const item = await Equipment.create({
       ...req.body,
       owner: req.user.id,
+      totalQuantity: qty,
+      availableStock: qty,
     });
     return res.status(201).json(item);
   } catch (error) {
@@ -60,7 +63,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Only owner can update listing' });
     }
 
-    Object.assign(item, req.body);
+    // Only allow updating safe fields
+    const allowedFields = ['title', 'description', 'category', 'pricePerDay', 'location', 'imageEmoji'];
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        item[field] = req.body[field];
+      }
+    }
     await item.save();
     return res.json(item);
   } catch (error) {

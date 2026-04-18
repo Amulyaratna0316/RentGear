@@ -10,7 +10,7 @@ import AIVerificationModal from '../components/AIVerificationModal';
 
 export default function AddListingScreen({ visible, onClose, onSuccess }) {
   const { user } = useAuth();
-  const [form, setForm] = useState({ name: '', price: '', category: 'Tools', desc: '' });
+  const [form, setForm] = useState({ name: '', price: '', category: 'Tools', desc: '', totalQuantity: '1' });
   const [showAI, setShowAI] = useState(false);
   const [verified, setVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -19,7 +19,7 @@ export default function AddListingScreen({ visible, onClose, onSuccess }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const reset = () => {
-    setForm({ name: '', price: '', category: 'Tools', desc: '' });
+    setForm({ name: '', price: '', category: 'Tools', desc: '', totalQuantity: '1' });
     setVerified(false);
     setSubmitting(false);
     setError('');
@@ -41,6 +41,7 @@ export default function AddListingScreen({ visible, onClose, onSuccess }) {
       
       const payload = {
         ...form,
+        totalQuantity: Math.max(1, Number(form.totalQuantity) || 1),
         ownerId: user?.id || user?._id,
       };
 
@@ -92,6 +93,18 @@ export default function AddListingScreen({ visible, onClose, onSuccess }) {
               keyboardType="numeric"
               value={form.price}
               onChangeText={v => set('price', v)}
+              editable={!submitting}
+            />
+
+            {/* Total Quantity */}
+            <Text style={styles.label}>Total Quantity (units you own)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 3"
+              placeholderTextColor={COLORS.gray400}
+              keyboardType="numeric"
+              value={form.totalQuantity}
+              onChangeText={v => set('totalQuantity', v)}
               editable={!submitting}
             />
 

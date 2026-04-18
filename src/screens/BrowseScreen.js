@@ -29,8 +29,9 @@ export default function BrowseScreen({ role, refreshKey, onAddListing, onBooking
           rating: item.rating || 4.7,
           reviews: item.reviews || 10,
           status: item.status || (item.available ? 'available' : 'unavailable'),
-          stock: item.stock !== undefined ? item.stock : 1,
-          available: item.available !== false && item.status !== 'unavailable',
+          stock: item.availableStock !== undefined ? item.availableStock : (item.stock !== undefined ? item.stock : 1),
+          totalQuantity: item.totalQuantity ?? 1,
+          available: (item.availableStock !== undefined ? item.availableStock > 0 : item.available !== false) && item.status !== 'unavailable',
           img: item.imageEmoji || '🛠️',
           tags: [item.category?.toLowerCase()],
           desc: item.description || '',
@@ -156,6 +157,9 @@ export default function BrowseScreen({ role, refreshKey, onAddListing, onBooking
                   <Text style={styles.cardPrice}>₹{eq.price?.toLocaleString('en-IN') || '0'}</Text>
                   <Text style={styles.cardUnit}>/{eq.unit}</Text>
                 </View>
+                <Text style={{ fontSize: 10, color: eq.stock > 0 ? COLORS.success : COLORS.danger, fontWeight: '600', marginTop: 3 }}>
+                  {eq.stock > 0 ? `${eq.stock}/${eq.totalQuantity ?? 1} in stock` : 'Out of stock'}
+                </Text>
               </View>
             </TouchableOpacity>
           ))}

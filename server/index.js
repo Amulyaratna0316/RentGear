@@ -1,9 +1,9 @@
-console.log('📡 SERVER VERSION 6.0: MULTI-PATH BOOKINGS ACTIVE');
+console.log('📡 SERVER VERSION 7.0: OWNER DASHBOARD UPGRADE');
 
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken'); // Need jwt for the auth route token generation
+const jwt = require('jsonwebtoken');
 
 const app = express();
 
@@ -19,7 +19,8 @@ mongoose.connect(mongoURI)
   .then(() => console.log('✅ Successfully connected to RentGear database inside standalone file'))
   .catch(err => console.log('❌ MongoDB Connection Error:', err.message));
 
-// 2. Route Prefixing - explicitly declaring /api/auth/login and /api/auth/register here to bypass deleted routers
+// ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
@@ -98,10 +99,13 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// ─── TEST ROUTE ───────────────────────────────────────────────────────────────
 
 app.get('/api/test', (req, res) => {
   res.json({ status: 'ok', message: 'Backend connected to Cluster0' });
 });
+
+// ─── GET ALL EQUIPMENT ────────────────────────────────────────────────────────
 
 app.get('/api/equipment', async (req, res) => {
   try {
@@ -112,6 +116,8 @@ app.get('/api/equipment', async (req, res) => {
   }
 });
 
+// ─── SEED ROUTE ───────────────────────────────────────────────────────────────
+
 app.get('/api/force-seed', async (req, res) => {
   console.log('Seed route hit!');
   try {
@@ -119,36 +125,24 @@ app.get('/api/force-seed', async (req, res) => {
     const ownerId = owner ? String(owner._id) : 'mock-owner-id';
 
     const sampleData = [
-      { name: 'Sony A7III', price: 850, unit: 'day', rating: 5, category: 'Cameras', imageEmoji: '📷', status: 'available', stock: 5, available: true, ownerId },
-      { name: 'DJI Mavic 3', price: 120, unit: 'day', rating: 4.8, category: 'Drones', imageEmoji: '🚁', status: 'available', stock: 5, available: true, ownerId }
+      { name: 'Sony A7III', price: 850, unit: 'day', rating: 5, category: 'Cameras', imageEmoji: '📷', status: 'available', totalQuantity: 5, availableStock: 5, available: true, ownerId },
+      { name: 'DJI Mavic 3', price: 120, unit: 'day', rating: 4.8, category: 'Drones', imageEmoji: '🚁', status: 'available', totalQuantity: 5, availableStock: 5, available: true, ownerId }
     ];
     await mongoose.connection.db.collection('equipment').deleteMany({});
     await mongoose.connection.db.collection('equipment').insertMany(sampleData);
     
-    res.status(200).json({ message: 'SEED ROUTE ACTIVE V5' });
+    res.status(200).json({ message: 'SEED ROUTE ACTIVE V7 — with totalQuantity/availableStock' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/bookings', async (req, res) => {
-  try {
-    const { userId, ownerId } = req.query;
-    const query = {};
-    if (userId) query.userId = String(userId);
-    if (ownerId) query.ownerId = String(ownerId);
-
-    const items = await mongoose.connection.db.collection('bookings').find(query).toArray();
-    res.json(items);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ─── CREATE EQUIPMENT (with totalQuantity) ────────────────────────────────────
 
 app.post('/api/equipment', async (req, res) => {
   console.log('📥 Equipment Creation Route Hit! Data:', req.body);
   try {
-    const { name, price, category, desc, ownerId } = req.body;
+    const { name, price, category, desc, ownerId, totalQuantity } = req.body;
     
     const emojiMap = {
       'Cameras': '📷',
@@ -156,8 +150,14 @@ app.post('/api/equipment', async (req, res) => {
       'Tools': '🛠️',
       'Generators': '⚡',
       'Excavators': '🏗️',
+      'Heavy Machinery': '🏗️',
+      'Construction': '🔧',
+      'Power': '⚡',
+      'Access Equipment': '🔝',
       'Other': '📦'
     };
+
+    const qty = Math.max(1, Number(totalQuantity) || 1);
 
     const newEquipment = {
       name: name || 'Unnamed Equipment',
@@ -167,7 +167,8 @@ app.post('/api/equipment', async (req, res) => {
       ownerId: String(ownerId),
       status: 'available',
       available: true,
-      stock: 5,
+      totalQuantity: qty,
+      availableStock: qty,
       rating: 5,
       imageEmoji: emojiMap[category] || '📦',
       image: 'https://placehold.co/400',
@@ -175,12 +176,171 @@ app.post('/api/equipment', async (req, res) => {
     };
 
     const result = await mongoose.connection.db.collection('equipment').insertOne(newEquipment);
+    console.log('✅ Equipment created with totalQuantity:', qty);
     res.status(201).json({ success: true, message: 'Equipment Created!', equipmentId: result.insertedId });
   } catch (err) {
     console.error('❌ Equipment Creation Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
+// ─── UPDATE EQUIPMENT (Edit — ownership check) ───────────────────────────────
+
+app.put('/api/equipment/:id', async (req, res) => {
+  console.log('📝 Equipment Update Route Hit! ID:', req.params.id, 'Data:', req.body);
+  try {
+    const { ownerId, name, price, description, category } = req.body;
+
+    if (!ownerId) {
+      return res.status(400).json({ message: 'ownerId is required for ownership verification' });
+    }
+
+    const equipment = await mongoose.connection.db.collection('equipment').findOne({
+      _id: new mongoose.Types.ObjectId(req.params.id)
+    });
+
+    if (!equipment) {
+      return res.status(404).json({ message: 'Equipment not found' });
+    }
+
+    // Ownership check
+    if (String(equipment.ownerId) !== String(ownerId)) {
+      return res.status(403).json({ message: 'Only the owner can edit this listing' });
+    }
+
+    // Build the $set object with only the fields that were sent
+    const updateFields = {};
+    if (name !== undefined) updateFields.name = name;
+    if (price !== undefined) updateFields.price = Number(price);
+    if (description !== undefined) updateFields.description = description;
+    if (category !== undefined) {
+      updateFields.category = category;
+      const emojiMap = {
+        'Cameras': '📷', 'Drones': '🚁', 'Tools': '🛠️', 'Generators': '⚡',
+        'Excavators': '🏗️', 'Heavy Machinery': '🏗️', 'Construction': '🔧',
+        'Power': '⚡', 'Access Equipment': '🔝', 'Other': '📦'
+      };
+      updateFields.imageEmoji = emojiMap[category] || '📦';
+    }
+    updateFields.updatedAt = new Date();
+
+    await mongoose.connection.db.collection('equipment').updateOne(
+      { _id: new mongoose.Types.ObjectId(req.params.id) },
+      { $set: updateFields }
+    );
+
+    const updated = await mongoose.connection.db.collection('equipment').findOne({
+      _id: new mongoose.Types.ObjectId(req.params.id)
+    });
+
+    console.log('✅ Equipment updated:', req.params.id);
+    res.json({ success: true, message: 'Equipment updated', equipment: updated });
+  } catch (err) {
+    console.error('❌ Equipment Update Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── DELETE EQUIPMENT (Remove — ownership check) ──────────────────────────────
+
+app.delete('/api/equipment/:id', async (req, res) => {
+  console.log('🗑️ Equipment Delete Route Hit! ID:', req.params.id);
+  try {
+    const { ownerId } = req.body || {};
+    const ownerIdQuery = ownerId || req.query.ownerId;
+
+    if (!ownerIdQuery) {
+      return res.status(400).json({ message: 'ownerId is required for ownership verification' });
+    }
+
+    const equipment = await mongoose.connection.db.collection('equipment').findOne({
+      _id: new mongoose.Types.ObjectId(req.params.id)
+    });
+
+    if (!equipment) {
+      return res.status(404).json({ message: 'Equipment not found' });
+    }
+
+    // Ownership check
+    if (String(equipment.ownerId) !== String(ownerIdQuery)) {
+      return res.status(403).json({ message: 'Only the owner can delete this listing' });
+    }
+
+    await mongoose.connection.db.collection('equipment').deleteOne({
+      _id: new mongoose.Types.ObjectId(req.params.id)
+    });
+
+    console.log('✅ Equipment deleted:', req.params.id);
+    res.json({ success: true, message: 'Equipment deleted' });
+  } catch (err) {
+    console.error('❌ Equipment Delete Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET BOOKINGS (with $lookup for renter names) ─────────────────────────────
+
+app.get('/api/bookings', async (req, res) => {
+  try {
+    const { userId, ownerId } = req.query;
+
+    // ── Owner path: use aggregation with $lookup to resolve renter names ──
+    if (ownerId) {
+      console.log(`[GET /api/bookings] Owner lookup for ownerId: ${ownerId}`);
+
+      const pipeline = [
+        { $match: { ownerId: String(ownerId) } },
+        {
+          $addFields: {
+            userIdAsObjectId: {
+              $cond: {
+                if: { $regexMatch: { input: { $ifNull: ['$userId', ''] }, regex: /^[0-9a-fA-F]{24}$/ } },
+                then: { $toObjectId: '$userId' },
+                else: null
+              }
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userIdAsObjectId',
+            foreignField: '_id',
+            as: 'renterDetails'
+          }
+        },
+        {
+          $addFields: {
+            renterName: {
+              $cond: {
+                if: { $gt: [{ $size: '$renterDetails' }, 0] },
+                then: { $arrayElemAt: ['$renterDetails.name', 0] },
+                else: 'Customer'
+              }
+            }
+          }
+        },
+        { $project: { renterDetails: 0, userIdAsObjectId: 0 } },
+        { $sort: { createdAt: -1 } }
+      ];
+
+      const bookings = await mongoose.connection.db.collection('bookings').aggregate(pipeline).toArray();
+      console.log(`[GET /api/bookings] Found ${bookings.length} booking(s) for owner ${ownerId}`);
+      return res.json(bookings);
+    }
+
+    // ── Customer path: simple filter ──
+    const query = {};
+    if (userId) query.userId = String(userId);
+
+    const items = await mongoose.connection.db.collection('bookings').find(query).sort({ createdAt: -1 }).toArray();
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── CREATE BOOKING (atomic stock decrement) ──────────────────────────────────
 
 // This catches /api/booking AND /api/bookings
 app.post(['/api/booking', '/api/bookings'], async (req, res) => {
@@ -191,38 +351,145 @@ app.post(['/api/booking', '/api/bookings'], async (req, res) => {
     const equipment = await mongoose.connection.db.collection('equipment').findOne({ _id: new mongoose.Types.ObjectId(equipmentId) });
     if (!equipment) return res.status(404).json({ error: 'Equipment not found' });
 
-    // Inventory depreciation
+    // Check stock before proceeding
+    const currentStock = equipment.availableStock !== undefined ? equipment.availableStock : (equipment.stock !== undefined ? equipment.stock : 1);
+    if (currentStock <= 0) {
+      return res.status(400).json({ error: 'Equipment is out of stock' });
+    }
+
+    // Atomic inventory decrement — prevents race conditions
     const updatedEq = await mongoose.connection.db.collection('equipment').findOneAndUpdate(
-      { _id: new mongoose.Types.ObjectId(equipmentId) },
-      { $inc: { stock: -1 } },
+      {
+        _id: new mongoose.Types.ObjectId(equipmentId),
+        availableStock: { $gt: 0 }   // only decrement if stock > 0
+      },
+      { $inc: { availableStock: -1 } },
       { returnDocument: 'after' }
     );
-    
-    if (updatedEq && updatedEq.value && updatedEq.value.stock <= 0) {
+
+    // Handle the case where findOneAndUpdate returns different shapes
+    const updatedDoc = updatedEq?.value || updatedEq;
+
+    if (!updatedDoc) {
+      return res.status(400).json({ error: 'Equipment is no longer available (race condition prevented)' });
+    }
+
+    // If availableStock has reached 0, mark as unavailable
+    if (updatedDoc.availableStock <= 0) {
       await mongoose.connection.db.collection('equipment').updateOne(
         { _id: new mongoose.Types.ObjectId(equipmentId) },
         { $set: { status: 'unavailable', available: false } }
       );
     }
-    
-    // Natively inserting into the RentGear 'bookings' collection
+
+    // Calculate price
+    const start = new Date(startDate || Date.now());
+    const end = new Date(endDate || Date.now());
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const durationDays = Math.max(1, Math.ceil((end - start) / msPerDay));
+    const totalPrice = durationDays * (equipment.price || equipment.pricePerDay || 0);
+
+    // Insert booking
     const result = await mongoose.connection.db.collection('bookings').insertOne({
       equipmentId,
-      ownerId: equipment.ownerId,
-      startDate: new Date(startDate || Date.now()),
-      endDate: new Date(endDate || Date.now()),
+      equipmentName: otherData.equipmentName || equipment.name || equipment.title || 'Equipment',
+      ownerId: equipment.ownerId || String(equipment.owner || ''),
+      userId: otherData.userId ? String(otherData.userId) : undefined,
+      startDate: start,
+      endDate: end,
+      totalPrice,
       ...otherData,
       status: 'confirmed',
       createdAt: new Date(),
     });
 
-    console.log('✅ Booking confirmed for:', req.body.equipmentName || equipmentId);
+    console.log('✅ Booking confirmed for:', otherData.equipmentName || equipmentId, '| Remaining stock:', updatedDoc.availableStock);
     res.status(201).json({ success: true, message: 'Booking Successful!', bookingId: result.insertedId });
   } catch (err) {
     console.error('❌ Booking Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
+// ─── OWNER EARNINGS AGGREGATION ───────────────────────────────────────────────
+
+app.get('/api/owner/earnings', async (req, res) => {
+  try {
+    const { ownerId } = req.query;
+    if (!ownerId) {
+      return res.status(400).json({ message: 'ownerId query parameter is required' });
+    }
+
+    console.log(`[GET /api/owner/earnings] Aggregating for ownerId: ${ownerId}`);
+
+    const pipeline = [
+      { $match: { ownerId: String(ownerId) } },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: { $ifNull: ['$totalPrice', 0] } },
+          totalRentals: { $sum: 1 }
+        }
+      }
+    ];
+
+    const result = await mongoose.connection.db.collection('bookings').aggregate(pipeline).toArray();
+
+    const earnings = result.length > 0
+      ? { totalEarnings: result[0].totalEarnings, totalRentals: result[0].totalRentals }
+      : { totalEarnings: 0, totalRentals: 0 };
+
+    console.log(`[GET /api/owner/earnings] Result:`, earnings);
+    res.json(earnings);
+  } catch (err) {
+    console.error('❌ Earnings Aggregation Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── PER-ITEM EQUIPMENT EARNINGS AGGREGATION ──────────────────────────────────
+
+app.get('/api/owner/equipment-earnings', async (req, res) => {
+  try {
+    const { ownerId } = req.query;
+    if (!ownerId) {
+      return res.status(400).json({ message: 'ownerId query parameter is required' });
+    }
+
+    console.log(`[GET /api/owner/equipment-earnings] Aggregating for ownerId: ${ownerId}`);
+
+    const pipeline = [
+      { $match: { ownerId: String(ownerId) } },
+      {
+        $group: {
+          _id: '$equipmentId',
+          totalEarned: { $sum: { $ifNull: ['$totalPrice', 0] } },
+          rentalCount: { $sum: 1 }
+        }
+      }
+    ];
+
+    const result = await mongoose.connection.db.collection('bookings').aggregate(pipeline).toArray();
+
+    // Transform from [{ _id: equipmentId, totalEarned, rentalCount }]
+    // into a map for easy frontend lookup: { equipmentId: { totalEarned, rentalCount } }
+    const earningsMap = {};
+    for (const item of result) {
+      earningsMap[item._id] = {
+        totalEarned: item.totalEarned || 0,
+        rentalCount: item.rentalCount || 0
+      };
+    }
+
+    console.log(`[GET /api/owner/equipment-earnings] Found earnings for ${Object.keys(earningsMap).length} items`);
+    res.json(earningsMap);
+  } catch (err) {
+    console.error('❌ Equipment Earnings Aggregation Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── 404 CATCH-ALL ────────────────────────────────────────────────────────────
 
 // Placed precisely at the end of the route stack so it functions correctly as a 404 catch-all
 app.use((req, res) => {
