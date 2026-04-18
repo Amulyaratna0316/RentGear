@@ -31,6 +31,31 @@ app.use('/api/bookings', bookingRoutes);
 
 app.get('/api/test', (req, res) => res.json({ status: 'ok', message: 'Backend connected to Cluster0' }));
 
+app.get('/api/force-seed', async (req, res) => {
+  try {
+    await Equipment.deleteMany({});
+    let owner = await User.findOne({ username: 'systemowner' });
+    if (!owner) {
+      owner = await User.create({
+        name: 'System Owner',
+        username: 'systemowner',
+        email: 'system@rentgear.com',
+        password: 'Password123!',
+        role: 'owner'
+      });
+    }
+
+    await Equipment.insertMany([
+      { title: 'Sony A7III Camera', pricePerDay: 50, category: 'Cameras', imageEmoji: '📷', owner: owner._id },
+      { title: 'DJI Mavic 3 Drone', pricePerDay: 80, category: 'Drones', imageEmoji: '🚁', owner: owner._id },
+      { title: 'Canon 24-70mm Lens', pricePerDay: 30, category: 'Lenses', imageEmoji: '🔍', owner: owner._id }
+    ]);
+    res.json({ message: 'Force seeded successfully with 3 equipments' });
+  } catch (error) {
+    res.status(500).json({ message: 'Force Seed Error', error: error.message });
+  }
+});
+
 app.get('/api/health', (_req, res) =>
   res.json({
     status: 'ok',

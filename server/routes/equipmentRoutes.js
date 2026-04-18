@@ -21,9 +21,12 @@ router.get('/', async (req, res) => {
     const items = await Equipment.find(filters)
       .populate('owner', 'name email')
       .sort({ createdAt: -1 });
+
+    console.log('Fetching equipment from DB. Count:', items.length);
     return res.json(items);
   } catch (error) {
-    return res.status(500).json({ message: 'Failed to fetch equipment', error: error.message });
+    const errorMsg = error.name === 'MongoServerSelectionError' ? 'Database connection failed' : 'Operation blocked';
+    return res.status(500).json({ message: 'Failed to fetch equipment: ' + errorMsg, error: error.message });
   }
 });
 
