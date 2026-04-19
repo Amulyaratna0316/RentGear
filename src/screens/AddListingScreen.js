@@ -59,7 +59,18 @@ export default function AddListingScreen({ visible, onClose, onSuccess }) {
     }
   };
 
-  const canSubmit = form.name && form.price && !submitting;
+  const priceParsed = parseFloat(form.price);
+  const priceError = form.price && (isNaN(priceParsed) || priceParsed <= 0) 
+    ? 'Please enter a valid positive price' : '';
+
+  const qtyParsed = parseInt(form.totalQuantity, 10);
+  const qtyError = form.totalQuantity && (isNaN(qtyParsed) || qtyParsed < 1) 
+    ? 'Quantity must be at least 1' : '';
+
+  const nameError = form.name && (form.name.length < 3 || /^\d+$/.test(form.name)) 
+    ? 'Name must be at least 3 characters and contain text' : '';
+
+  const canSubmit = form.name && form.price && form.totalQuantity && !nameError && !priceError && !qtyError && !submitting;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={reset}>
@@ -76,18 +87,19 @@ export default function AddListingScreen({ visible, onClose, onSuccess }) {
             {/* Name */}
             <Text style={styles.label}>Equipment Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, nameError && styles.inputError]}
               placeholder="e.g. Excavator JD 350G"
               placeholderTextColor={COLORS.gray400}
               value={form.name}
               onChangeText={v => set('name', v)}
               editable={!submitting}
             />
+            {!!nameError && <Text style={styles.inlineError}>{nameError}</Text>}
 
             {/* Price */}
             <Text style={styles.label}>Price per Day (₹)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, priceError && styles.inputError]}
               placeholder="e.g. 4500"
               placeholderTextColor={COLORS.gray400}
               keyboardType="numeric"
@@ -95,11 +107,12 @@ export default function AddListingScreen({ visible, onClose, onSuccess }) {
               onChangeText={v => set('price', v)}
               editable={!submitting}
             />
+            {!!priceError && <Text style={styles.inlineError}>{priceError}</Text>}
 
             {/* Total Quantity */}
             <Text style={styles.label}>Total Quantity (units you own)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, qtyError && styles.inputError]}
               placeholder="e.g. 3"
               placeholderTextColor={COLORS.gray400}
               keyboardType="numeric"
@@ -107,6 +120,7 @@ export default function AddListingScreen({ visible, onClose, onSuccess }) {
               onChangeText={v => set('totalQuantity', v)}
               editable={!submitting}
             />
+            {!!qtyError && <Text style={styles.inlineError}>{qtyError}</Text>}
 
             {/* Category */}
             <Text style={styles.label}>Category</Text>
@@ -199,6 +213,8 @@ const styles = StyleSheet.create({
   closeBtnText: { fontSize: 16, color: COLORS.gray500 },
   label: { fontSize: 13, fontWeight: '600', color: COLORS.gray700, marginBottom: 6 },
   input: { borderWidth: 1, borderColor: COLORS.gray200, borderRadius: 10, padding: 12, fontSize: 14, color: '#111', marginBottom: 16 },
+  inputError: { borderColor: COLORS.danger, backgroundColor: '#fef2f2', marginBottom: 4 },
+  inlineError: { color: COLORS.danger, fontSize: 12, marginBottom: 12 },
   textArea: { height: 90, textAlignVertical: 'top' },
   catChip: { backgroundColor: COLORS.gray100, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7 },
   catChipActive: { backgroundColor: COLORS.primary },

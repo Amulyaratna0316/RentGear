@@ -184,7 +184,17 @@ app.post('/api/equipment', async (req, res) => {
   console.log('📥 Equipment Creation Route Hit! Data:', req.body);
   try {
     const { name, price, category, desc, ownerId, totalQuantity } = req.body;
-    
+
+    // ── Backend Validation ──────────────────────────────────────────────────────────
+    if (typeof name !== 'string' || name.length < 3 || /^\d+$/.test(name)) {
+      return res.status(400).json({ error: 'Invalid equipment name' });
+    }
+
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return res.status(400).json({ error: 'Invalid price amount' });
+    }
+
     const emojiMap = {
       'Cameras': '📷',
       'Drones': '🚁',
@@ -201,8 +211,8 @@ app.post('/api/equipment', async (req, res) => {
     const qty = Math.max(1, Number(totalQuantity) || 1);
 
     const newEquipment = {
-      name: name || 'Unnamed Equipment',
-      price: price ? Number(price) : 0,
+      name: name,
+      price: numPrice,
       category: category || 'Other',
       description: desc || '',
       ownerId: String(ownerId),
